@@ -36,121 +36,211 @@ THE SOFTWARE.
 */
 
 #region UICode
-ListBoxControl Amount1 = 0; // Color comparison method|CIE2000|CIE94|CIE76|CMC I:c|Weighted Euclidean|Euclidean
-ListBoxControl Amount2 = 0; // Dithering method|Floyd-Steinberg (1/16)|Custom (1/32)
-
-CheckboxControl AmountSand = true; // Palette: Sand
-CheckboxControl AmountPrismarine = true; // Palette: Prismarine
-CheckboxControl AmountTNT = true; // Palette: TNT
-CheckboxControl AmountIce = true; // Palette: Ice
-CheckboxControl AmountDirt = true; // Palette: Dirt
-CheckboxControl AmountWhiteTerracotta = false; // Palette: White Terracotta
+ListBoxControl InputColorMethod = 0; // Color comparison method|CIE2000|Weighted Euclidean|Euclidean|CIE94|CIE76|CMC I:c
+ListBoxControl InputDitheringMethod = 0; // Dithering method|Floyd-Steinberg (1/16)|None (Approximate colors)|Custom (1/32)|
+CheckboxControl InputPaletteShadedWhite = false; // Palette: Shaded white wool (#DCDCDC and #B4B4B4). Tweak for skin layers.
+CheckboxControl InputPaletteSand = true; // Palette: Sand
+CheckboxControl InputPalettePrismarine = true; // Palette: Prismarine
+CheckboxControl InputPaletteTNT = true; // Palette: TNT
+CheckboxControl InputPaletteIce = true; // Palette: Ice
+CheckboxControl InputPaletteDirt = true; // Palette: Dirt
+CheckboxControl InputPaletteWhiteTerracotta = false; // Palette: White Terracotta
+IntSliderControl InputHue = 0; // [-180,180,2] Hue
+IntSliderControl InputSaturation = 100; // [0,400,3] Saturation
+IntSliderControl InputLightness = 0; // [-100,100,5] Lightness
+IntSliderControl InputBrightness = 0; // [-100,100,5] Brightness
+IntSliderControl InputContrast = 0; // [-100,100,5] Contrast
 #endregion
 
-byte PlusTruncate(byte a, int b)
+enum ColorMethod
 {
-    int c = a + b;
-    if (c < 0) return 0;
-    if (c > 255) return 255;
-    return (byte)c;
+    CIE2000 = 0,
+    WeightedEuclidean,
+    Euclidean,
+    CIE94,
+    CIE76,
+    CMCIC
 }
 
-private IColorSpaceComparison comparer;
-
-Color FindNearestColor(Color color, IList<Color> palette)
+enum DitheringMethod
 {
-    var colorRgb = new Rgb { R = color.R, G = color.G, B = color.B};
-    double minDistance = Double.MaxValue;
-    int bestIndex = 0;
-
-    for (int i = 0; i < palette.Count; i++)
-    {
-        var colorOther = new Rgb { R = palette[i].R, G = palette[i].G, B = palette[i].B };
-        double distance = comparer.Compare(colorRgb, colorOther);
-
-        if (distance < minDistance)
-        {
-            minDistance = distance;
-            bestIndex = i;
-            if (minDistance <= Double.Epsilon) break;
-        }
-    }
-    return palette[bestIndex];
+    FloydSteinberg = 0,
+    None,
+    Custom_1_32
 }
-
-// Setup for using pixel op
-private UnaryPixelOps.Desaturate desaturateOp = new UnaryPixelOps.Desaturate();
 
 // Here is the main render loop function
 void Render(Surface dst, Surface src, Rectangle rect)
 {
     // Call the copy function
-    dst.CopySurface(src,rect.Location,rect);
+    dst.CopySurface(src, rect.Location, rect);
 
-    switch (Amount1)
+    // Preprocessing: Hue, Saturation Lightness
+    if (InputHue != 0 || InputSaturation != 100 || InputLightness != 0)
     {
-        case 0:
+        UnaryPixelOp pixelOp = new UnaryPixelOps.HueSaturationLightness(InputHue, InputSaturation, InputLightness);
+        pixelOp.Apply(dst, src, rect);
+    }
+
+    // Preprocessing: Brightness, Contrast
+    if (InputBrightness != 0 || InputContrast != 0)
+    {
+        int multiply;
+        int divide;
+        byte[] rgbTable = new byte[65536];
+
+        if (InputContrast < 0)
+        {
+            multiply = InputContrast + 100;
+            divide = 100;
+        }
+        else if (InputContrast > 0)
+        {
+            multiply = 100;
+            divide = 100 - InputContrast;
+        }
+        else
+        {
+            multiply = 1;
+            divide = 1;
+        }
+
+        if (divide == 0)
+        {
+            for (int intensity = 0; intensity < 256; ++intensity)
+            {
+                if (intensity + InputBrightness < 128)
+                {
+                    rgbTable[intensity] = 0;
+                }
+                else
+                {
+                    rgbTable[intensity] = 255;
+                }
+            }
+        }
+        else if (divide == 100)
+        {
+            for (int intensity = 0; intensity < 256; ++intensity)
+            {
+                int shift = (intensity - 127) * multiply / divide + 127 - intensity + InputBrightness;
+
+                for (int col = 0; col < 256; ++col)
+                {
+                    int index = (intensity * 256) + col;
+                    rgbTable[index] = Int32Util.ClampToByte(col + shift);
+                }
+            }
+        }
+        else
+        {
+            for (int intensity = 0; intensity < 256; ++intensity)
+            {
+                int shift = (intensity - 127 + InputBrightness) * multiply / divide + 127 - intensity;
+
+                for (int col = 0; col < 256; ++col)
+                {
+                    int index = (intensity * 256) + col;
+                    rgbTable[index] = Int32Util.ClampToByte(col + shift);
+                }
+            }
+        }
+
+        for (int y = rect.Top; y < rect.Bottom; y++)
+        {
+            if (IsCancelRequested) return;
+            for (int x = rect.Left; x < rect.Right; x++)
+            {
+                ColorBgra currentPixel = dst[x,y];
+                int i = currentPixel.GetIntensityByte();
+                if (divide == 0)
+                {
+                    uint c = rgbTable[i];
+                    dst[x,y] = ColorBgra.FromUInt32((currentPixel.Bgra & 0xff000000) | c | (c << 8) | (c << 16));
+                }
+                else
+                {
+                    int shiftIndex = i * 256;
+
+                    currentPixel.R = rgbTable[shiftIndex + currentPixel.R];
+                    currentPixel.G = rgbTable[shiftIndex + currentPixel.G];
+                    currentPixel.B = rgbTable[shiftIndex + currentPixel.B];
+
+                    dst[x,y] = currentPixel;
+                }
+            }
+        }
+    }
+
+    IColorSpaceComparison comparer;
+
+    switch ((ColorMethod)InputColorMethod)
+    {
+        case ColorMethod.CIE2000:
         default:
             comparer = new CieDe2000Comparison();
             break;
-        case 1:
-            comparer = new Cie94Comparison();
-            break;
-        case 2:
-            comparer = new Cie1976Comparison();
-            break;
-        case 3:
-            comparer = new CmcComparison();
-            break;
-        case 4:
+        case ColorMethod.WeightedEuclidean:
             comparer = new WeightedEuclidianComparison();
             break;
-        case 5:
+        case ColorMethod.Euclidean:
             comparer = new EuclidianComparison();
+            break;
+        case ColorMethod.CIE94:
+            comparer = new Cie94Comparison();
+            break;
+        case ColorMethod.CIE76:
+            comparer = new Cie1976Comparison();
+            break;
+        case ColorMethod.CMCIC:
+            comparer = new CmcComparison();
             break;
     }
 
     var palette = new List<Color>();
 
-    if (AmountSand)
+    if (InputPaletteSand)
     {
         palette.Add(Color.FromArgb(174, 164, 115));
         palette.Add(Color.FromArgb(213, 201, 140));
         palette.Add(Color.FromArgb(247, 233, 163));
     }
-    if (AmountPrismarine)
+    if (InputPalettePrismarine)
     {
         palette.Add(Color.FromArgb(64, 154, 150));
         palette.Add(Color.FromArgb(79, 188, 183));
         palette.Add(Color.FromArgb(92, 219, 213));
     }
-    if (AmountTNT)
+    if (InputPaletteTNT)
     {
         palette.Add(Color.FromArgb(180, 0, 0));
         palette.Add(Color.FromArgb(220, 0, 0));
         palette.Add(Color.FromArgb(255, 0, 0));
     }
-    if (AmountIce)
-    {
-        palette.Add(Color.FromArgb(112, 112, 180));
-        palette.Add(Color.FromArgb(138, 138, 220));
-        palette.Add(Color.FromArgb(160, 160, 255));
-    }
-    if (AmountDirt)
+    if (InputPaletteDirt)
     {
         palette.Add(Color.FromArgb(106, 76, 54));
         palette.Add(Color.FromArgb(130, 94, 66));
         palette.Add(Color.FromArgb(151, 109, 77));
     }
-    if (AmountWhiteTerracotta)
+    if (InputPaletteIce)
+    {
+        palette.Add(Color.FromArgb(112, 112, 180));
+        palette.Add(Color.FromArgb(138, 138, 220));
+        palette.Add(Color.FromArgb(160, 160, 255));
+    }
+    if (InputPaletteWhiteTerracotta)
     {
         palette.Add(Color.FromArgb(147, 124, 113));
         palette.Add(Color.FromArgb(180, 152, 138));
         palette.Add(Color.FromArgb(209, 177, 161));
     }
 
-    palette.Add(Color.FromArgb(0xB4B4B4));
-    palette.Add(Color.FromArgb(0xDCDCDC));
+    if (InputPaletteShadedWhite)
+    {
+        palette.Add(Color.FromArgb(0xB4B4B4));
+        palette.Add(Color.FromArgb(0xDCDCDC));
+    }
     palette.Add(Color.FromArgb(0xFFFFFF));
     palette.Add(Color.FromArgb(0x985924));
     palette.Add(Color.FromArgb(0xBA6D2C));
@@ -207,159 +297,198 @@ void Render(Surface dst, Surface src, Rectangle rect)
         if (IsCancelRequested) return;
         for (int x = rect.Left; x < rect.Right; x++)
         {
-            if (Amount2==0) // Floyd-Steinberg Dithering
+            ColorBgra CurrentPixel = dst[x,y];
+            byte A = CurrentPixel.A;
+            Color currentPixel = CurrentPixel.ToColor();
+
+            switch ((DitheringMethod)InputDitheringMethod)
             {
-                ColorBgra CurrentPixel = dst[x,y];
-                byte A = CurrentPixel.A;
-                Color currentPixel = CurrentPixel.ToColor();
-
-                BestColor = FindNearestColor(currentPixel, palette);
-                BestColora = ColorBgra.FromColor(BestColor);
-                BestColora.A = A;
-
-                // Floyd-Steinberg Dithering
-                
-                int errorR = currentPixel.R - BestColor.R;
-                int errorG = currentPixel.G - BestColor.G;
-                int errorB = currentPixel.B - BestColor.B;
-
-                //  - * 7    where *=pixel being processed, -=previously processed pixel
-                //  3 5 1    and pixel difference is distributed to neighbor pixels
-                //           Note: 7+3+5+1=16 so we divide by 16 (>>4) before adding.
-
-                if (x + 1 < rect.Right)
+                case DitheringMethod.FloydSteinberg:
+                default:
                 {
-                    dst[x + 1, y + 0] = ColorBgra.FromBgra(
-                        PlusTruncate(dst[x + 1, y + 0].B, (errorB * 7) >> 4),
-                        PlusTruncate(dst[x + 1, y + 0].G, (errorG * 7) >> 4),
-                        PlusTruncate(dst[x + 1, y + 0].R, (errorR * 7) >> 4),
-                        dst[x+1,y].A
-                    );
-                }
-                if (y + 1 < rect.Bottom)
-                {
-                    if (x - 1 > rect.Left)
-                    {
-                        dst[x - 1, y + 1] = ColorBgra.FromBgra(
-                            PlusTruncate(dst[x - 1, y + 1].B, (errorB * 3) >> 4),
-                            PlusTruncate(dst[x - 1, y + 1].G, (errorG * 3) >> 4),
-                            PlusTruncate(dst[x - 1, y + 1].R, (errorR * 3) >> 4),
-                            dst[x-1,y+1].A
-                        );
-                    }
-                    dst[x - 0, y + 1] = ColorBgra.FromBgra(
-                        PlusTruncate(dst[x - 0, y + 1].B, (errorB * 5) >> 4),
-                        PlusTruncate(dst[x - 0, y + 1].G, (errorG * 5) >> 4),
-                        PlusTruncate(dst[x - 0, y + 1].R, (errorR * 5) >> 4),
-                        dst[x-0,y+1].A
-                    );
+                    BestColor = FindNearestColor(currentPixel, palette, comparer);
+                    BestColora = ColorBgra.FromColor(BestColor);
+                    BestColora.A = A;
+
+                    int errorR = currentPixel.R - BestColor.R;
+                    int errorG = currentPixel.G - BestColor.G;
+                    int errorB = currentPixel.B - BestColor.B;
+
+                    //  - * 7    where *=pixel being processed, -=previously processed pixel
+                    //  3 5 1    and pixel difference is distributed to neighbor pixels
+                    //           Note: 7+3+5+1=16 so we divide by 16 (>>4) before adding.
+
                     if (x + 1 < rect.Right)
                     {
-                        dst[x + 1, y + 1] = ColorBgra.FromBgra(
-                            PlusTruncate(dst[x + 1, y + 1].B, (errorB * 1) >> 4),
-                            PlusTruncate(dst[x + 1, y + 1].G, (errorG * 1) >> 4),
-                            PlusTruncate(dst[x + 1, y + 1].R, (errorR * 1) >> 4),
-                            dst[x+1,y+1].A
+                        dst[x + 1, y + 0] = ColorBgra.FromBgra(
+                            PlusTruncate(dst[x + 1, y + 0].B, (errorB * 7) >> 4),
+                            PlusTruncate(dst[x + 1, y + 0].G, (errorG * 7) >> 4),
+                            PlusTruncate(dst[x + 1, y + 0].R, (errorR * 7) >> 4),
+                            dst[x+1,y].A
                         );
                     }
-                }
-            }
-            else // Custom Dithering
-            {
-                ColorBgra CurrentPixel = dst[x,y];
-                byte A = CurrentPixel.A;
-                Color currentPixel = CurrentPixel.ToColor();
-
-                BestColor = FindNearestColor(currentPixel, palette);
-                BestColora = ColorBgra.FromColor(BestColor);
-                BestColora.A = A;
-
-                // Custom 1/32 Dithering
-                
-                int errorR = currentPixel.R - BestColor.R;
-                int errorG = currentPixel.G - BestColor.G;
-                int errorB = currentPixel.B - BestColor.B;
-
-                //  - - # 8 4    where *=pixel being processed, -=previously processed pixel
-                //  0 4 8 4 1    and pixel difference is distributed to neighbor pixels
-                //  0 0 2 1 0 
-
-                if (x + 1 < rect.Right)
-                {
-                    dst[x + 1, y + 0] = ColorBgra.FromBgra(
-                        PlusTruncate(dst[x + 1, y + 0].B, errorB >> 2),
-                        PlusTruncate(dst[x + 1, y + 0].G, errorG >> 2),
-                        PlusTruncate(dst[x + 1, y + 0].R, errorR >> 2),
-                        dst[x+1,y].A
-                    );
-                }
-                if (x + 2 < rect.Right)
-                {
-                    dst[x + 2, y + 0] = ColorBgra.FromBgra(
-                        PlusTruncate(dst[x + 2, y + 0].B, errorB >> 3),
-                        PlusTruncate(dst[x + 2, y + 0].G, errorG >> 3),
-                        PlusTruncate(dst[x + 2, y + 0].R, errorR >> 3),
-                        dst[x+2,y].A
-                    );
-                }
-                if (y + 1 < rect.Bottom)
-                {
-                    if (x - 1 > rect.Left)
+                    if (y + 1 < rect.Bottom)
                     {
-                        dst[x - 1, y + 1] = ColorBgra.FromBgra(
-                            PlusTruncate(dst[x - 1, y + 1].B, errorB >> 3),
-                            PlusTruncate(dst[x - 1, y + 1].G, errorG >> 3),
-                            PlusTruncate(dst[x - 1, y + 1].R, errorR >> 3),
-                            dst[x-1,y+1].A
+                        if (x - 1 > rect.Left)
+                        {
+                            dst[x - 1, y + 1] = ColorBgra.FromBgra(
+                                PlusTruncate(dst[x - 1, y + 1].B, (errorB * 3) >> 4),
+                                PlusTruncate(dst[x - 1, y + 1].G, (errorG * 3) >> 4),
+                                PlusTruncate(dst[x - 1, y + 1].R, (errorR * 3) >> 4),
+                                dst[x-1,y+1].A
+                            );
+                        }
+                        dst[x - 0, y + 1] = ColorBgra.FromBgra(
+                            PlusTruncate(dst[x - 0, y + 1].B, (errorB * 5) >> 4),
+                            PlusTruncate(dst[x - 0, y + 1].G, (errorG * 5) >> 4),
+                            PlusTruncate(dst[x - 0, y + 1].R, (errorR * 5) >> 4),
+                            dst[x-0,y+1].A
                         );
+                        if (x + 1 < rect.Right)
+                        {
+                            dst[x + 1, y + 1] = ColorBgra.FromBgra(
+                                PlusTruncate(dst[x + 1, y + 1].B, (errorB * 1) >> 4),
+                                PlusTruncate(dst[x + 1, y + 1].G, (errorG * 1) >> 4),
+                                PlusTruncate(dst[x + 1, y + 1].R, (errorR * 1) >> 4),
+                                dst[x+1,y+1].A
+                            );
+                        }
                     }
-                    dst[x, y + 1] = ColorBgra.FromBgra(
-                        PlusTruncate(dst[x, y + 1].B, errorB >> 2),
-                        PlusTruncate(dst[x, y + 1].G, errorG >> 2),
-                        PlusTruncate(dst[x, y + 1].R, errorR >> 2),
-                        dst[x,y+1].A
-                    );
+                    break;
+                }
+
+                case DitheringMethod.Custom_1_32:
+                {
+                    BestColor = FindNearestColor(currentPixel, palette, comparer);
+                    BestColora = ColorBgra.FromColor(BestColor);
+                    BestColora.A = A;
+
+                    // Custom 1/32 Dithering
+                    
+                    int errorR = currentPixel.R - BestColor.R;
+                    int errorG = currentPixel.G - BestColor.G;
+                    int errorB = currentPixel.B - BestColor.B;
+
+                    //  - - # 8 4    where *=pixel being processed, -=previously processed pixel
+                    //  0 4 8 4 1    and pixel difference is distributed to neighbor pixels
+                    //  0 0 2 1 0 
+
                     if (x + 1 < rect.Right)
                     {
-                        dst[x + 1, y + 1] = ColorBgra.FromBgra(
-                            PlusTruncate(dst[x + 1, y + 1].B, errorB >> 3),
-                            PlusTruncate(dst[x + 1, y + 1].G, errorG >> 3),
-                            PlusTruncate(dst[x + 1, y + 1].R, errorR >> 3),
-                            dst[x+1,y+1].A
+                        dst[x + 1, y + 0] = ColorBgra.FromBgra(
+                            PlusTruncate(dst[x + 1, y + 0].B, errorB >> 2),
+                            PlusTruncate(dst[x + 1, y + 0].G, errorG >> 2),
+                            PlusTruncate(dst[x + 1, y + 0].R, errorR >> 2),
+                            dst[x+1,y].A
                         );
                     }
                     if (x + 2 < rect.Right)
                     {
-                        dst[x + 2, y + 1] = ColorBgra.FromBgra(
-                            PlusTruncate(dst[x + 2, y + 1].B, errorB >> 5),
-                            PlusTruncate(dst[x + 2, y + 1].G, errorG >> 5),
-                            PlusTruncate(dst[x + 2, y + 1].R, errorR >> 5),
-                            dst[x+2,y+1].A
+                        dst[x + 2, y + 0] = ColorBgra.FromBgra(
+                            PlusTruncate(dst[x + 2, y + 0].B, errorB >> 3),
+                            PlusTruncate(dst[x + 2, y + 0].G, errorG >> 3),
+                            PlusTruncate(dst[x + 2, y + 0].R, errorR >> 3),
+                            dst[x+2,y].A
                         );
                     }
-                }
-                if (y + 2 < rect.Bottom)
-                {
-                    dst[x, y + 2] = ColorBgra.FromBgra(
-                        PlusTruncate(dst[x, y + 2].B, errorB >> 4),
-                        PlusTruncate(dst[x, y + 2].G, errorG >> 4),
-                        PlusTruncate(dst[x, y + 2].R, errorR >> 4),
-                        dst[x,y+2].A
-                    );
-                    if (x + 1 < rect.Right)
+                    if (y + 1 < rect.Bottom)
                     {
-                        dst[x + 1, y + 2] = ColorBgra.FromBgra(
-                            PlusTruncate(dst[x + 1, y + 2].B, errorB >> 5),
-                            PlusTruncate(dst[x + 1, y + 2].G, errorG >> 5),
-                            PlusTruncate(dst[x + 1, y + 2].R, errorR >> 5),
-                            dst[x+1,y+2].A
+                        if (x - 1 > rect.Left)
+                        {
+                            dst[x - 1, y + 1] = ColorBgra.FromBgra(
+                                PlusTruncate(dst[x - 1, y + 1].B, errorB >> 3),
+                                PlusTruncate(dst[x - 1, y + 1].G, errorG >> 3),
+                                PlusTruncate(dst[x - 1, y + 1].R, errorR >> 3),
+                                dst[x-1,y+1].A
+                            );
+                        }
+                        dst[x, y + 1] = ColorBgra.FromBgra(
+                            PlusTruncate(dst[x, y + 1].B, errorB >> 2),
+                            PlusTruncate(dst[x, y + 1].G, errorG >> 2),
+                            PlusTruncate(dst[x, y + 1].R, errorR >> 2),
+                            dst[x,y+1].A
                         );
+                        if (x + 1 < rect.Right)
+                        {
+                            dst[x + 1, y + 1] = ColorBgra.FromBgra(
+                                PlusTruncate(dst[x + 1, y + 1].B, errorB >> 3),
+                                PlusTruncate(dst[x + 1, y + 1].G, errorG >> 3),
+                                PlusTruncate(dst[x + 1, y + 1].R, errorR >> 3),
+                                dst[x+1,y+1].A
+                            );
+                        }
+                        if (x + 2 < rect.Right)
+                        {
+                            dst[x + 2, y + 1] = ColorBgra.FromBgra(
+                                PlusTruncate(dst[x + 2, y + 1].B, errorB >> 5),
+                                PlusTruncate(dst[x + 2, y + 1].G, errorG >> 5),
+                                PlusTruncate(dst[x + 2, y + 1].R, errorR >> 5),
+                                dst[x+2,y+1].A
+                            );
+                        }
                     }
+                    if (y + 2 < rect.Bottom)
+                    {
+                        dst[x, y + 2] = ColorBgra.FromBgra(
+                            PlusTruncate(dst[x, y + 2].B, errorB >> 4),
+                            PlusTruncate(dst[x, y + 2].G, errorG >> 4),
+                            PlusTruncate(dst[x, y + 2].R, errorR >> 4),
+                            dst[x,y+2].A
+                        );
+                        if (x + 1 < rect.Right)
+                        {
+                            dst[x + 1, y + 2] = ColorBgra.FromBgra(
+                                PlusTruncate(dst[x + 1, y + 2].B, errorB >> 5),
+                                PlusTruncate(dst[x + 1, y + 2].G, errorG >> 5),
+                                PlusTruncate(dst[x + 1, y + 2].R, errorR >> 5),
+                                dst[x+1,y+2].A
+                            );
+                        }
+                    }
+                    break;
+                }
+
+                case DitheringMethod.None:
+                {
+                    BestColor = FindNearestColor(currentPixel, palette, comparer);
+                    BestColora = ColorBgra.FromColor(BestColor);
+                    BestColora.A = A;
+                    break;
                 }
             }
             dst[x,y] = BestColora;
         }
     }
+}
+
+Color FindNearestColor(Color color, IList<Color> palette, IColorSpaceComparison comparer)
+{
+    var colorRgb = new Rgb { R = color.R, G = color.G, B = color.B};
+    double minDistance = Double.MaxValue;
+    int bestIndex = 0;
+
+    for (int i = 0; i < palette.Count; i++)
+    {
+        var colorOther = new Rgb { R = palette[i].R, G = palette[i].G, B = palette[i].B };
+        double distance = comparer.Compare(colorRgb, colorOther);
+
+        if (distance < minDistance)
+        {
+            minDistance = distance;
+            bestIndex = i;
+            if (minDistance <= Double.Epsilon) break;
+        }
+    }
+
+    return palette[bestIndex];
+}
+
+byte PlusTruncate(byte a, int b)
+{
+    int c = a + b;
+    if (c < 0) return 0;
+    if (c > 255) return 255;
+    return (byte)c;
 }
 
 public interface IRgb : IColorSpace
@@ -1034,5 +1163,270 @@ public class EuclidianComparison : IColorSpaceComparison
     private static double Distance(double a, double b)
     {
         return (a - b) * (a - b);
+    }
+}
+
+// Code lovingly copied from StackOverflow (and tweaked a bit)
+// Question/Answer: http://stackoverflow.com/questions/359612/how-to-change-rgb-color-to-hsv/1626175#1626175
+// Submitter: Greg http://stackoverflow.com/users/12971/greg
+// License: http://creativecommons.org/licenses/by-sa/3.0/
+internal static class HsvConverter
+{
+    internal static void ToColorSpace(IRgb color, IHsv item)
+    {
+        var max = Max(color.R, Max(color.G, color.B));
+        var min = Min(color.R, Min(color.G, color.B));
+
+        if (Math.Abs(max - min) <= float.Epsilon) {
+            item.H = 0d;
+        }
+        else {
+            double diff = max - min;
+
+            if (Math.Abs(max - color.R) <= float.Epsilon) {
+                item.H = 60d * (color.G - color.B) / diff;
+            }
+            else if (Math.Abs(max - color.G) <= float.Epsilon) {
+                item.H = 60d * (color.B - color.R) / diff + 120d;
+            }
+            else {
+                item.H = 60d * (color.R - color.G) / diff + 240d;
+            }
+
+            if (item.H < 0d) {
+                item.H += 360d;
+            }
+        }
+
+        item.S = (max <= 0) ? 0 : 1d - (1d * min / max);
+        item.V = max / 255d;
+    }
+
+    internal static IRgb ToColor(IHsv item)
+    {
+        var range = Convert.ToInt32(Math.Floor(item.H / 60.0)) % 6;
+        var f = item.H / 60.0 - Math.Floor(item.H / 60.0);
+
+        var v = item.V * 255.0;
+        var p = v * (1 - item.S);
+        var q = v * (1 - f * item.S);
+        var t = v * (1 - (1 - f) * item.S);
+
+        switch (range) {
+            case 0:
+                return NewRgb(v, t, p);
+            case 1:
+                return NewRgb(q, v, p);
+            case 2:
+                return NewRgb(p, v, t);
+            case 3:
+                return NewRgb(p, q, v);
+            case 4:
+                return NewRgb(t, p, v);
+        }
+        return NewRgb(v, p, q);
+    }
+
+    private static IRgb NewRgb(double r, double g, double b)
+    {
+        return new Rgb { R = r, G = g, B = b };
+    }
+
+    private static double Max(double a, double b)
+    {
+        return a > b ? a : b;
+    }
+
+    private static double Min(double a, double b)
+    {
+        return a < b ? a : b;
+    }
+}
+
+public interface IHsl : IColorSpace
+{
+
+    double H { get; set; }
+
+    double S { get; set; }
+
+    double L { get; set; }
+
+}
+
+public class Hsl : ColorSpace, IHsl
+{
+
+    public double H { get; set; }
+
+    public double S { get; set; }
+
+    public double L { get; set; }
+
+
+    public override void Initialize(IRgb color)
+    {
+        HslConverter.ToColorSpace(color,this);
+    }
+
+    public override IRgb ToRgb()
+    {
+        return HslConverter.ToColor(this);
+    }
+}
+
+internal static class HslConverter
+{
+    internal static void ToColorSpace(IRgb color, IHsl item)
+    {
+        var hsl = ToHsl(color);
+
+        item.H = hsl.Item1;
+        item.S = hsl.Item2;
+        item.L = hsl.Item3;
+    }
+
+    private static Tuple<double, double, double> ToHsl(IRgb color)
+    {
+        color.R = Math.Round(color.R, 0);
+        color.G = Math.Round(color.G, 0);
+        color.B = Math.Round(color.B, 0);
+        var max = Max(color.R, Max(color.G, color.B));
+        var min = Min(color.R, Min(color.G, color.B));
+
+        double h, s, l;
+
+        //saturation
+        var cnt = (max + min) / 2d;
+        if (cnt <= 127d) {
+            s = ((max - min) / (max + min));
+        }
+        else {
+            s = ((max - min) / (510d - max - min));
+        }
+
+        //lightness
+        l = ((max + min) / 2d) / 255d;
+
+        //hue
+        if (Math.Abs(max - min) <= float.Epsilon) {
+            h = 0d;
+            s = 0d;
+        }
+        else {
+            double diff = max - min;
+
+            if (Math.Abs(max - color.R) <= float.Epsilon) {
+                h = 60d * (color.G - color.B) / diff;
+            }
+            else if (Math.Abs(max - color.G) <= float.Epsilon) {
+                h = 60d * (color.B - color.R) / diff + 120d;
+            }
+            else {
+                h = 60d * (color.R - color.G) / diff + 240d;
+            }
+
+            if (h < 0d) {
+                h += 360d;
+            }
+        }
+
+        return new Tuple<double, double, double>(h, s, l);
+    }
+
+    private static double Max(double a, double b)
+    {
+        return a > b ? a : b;
+    }
+
+    private static double Min(double a, double b)
+    {
+        return a < b ? a : b;
+    }
+
+    internal static IRgb ToColor(IHsl item)
+    {
+        var rangedH = item.H / 360.0;
+        var r = 0.0;
+        var g = 0.0;
+        var b = 0.0;
+        var s = item.S;
+        var l = item.L;
+
+        if (l > 0.0001) {
+            if (s <= 0.0001) {
+                r = g = b = l;
+            }
+            else {
+                var temp2 = (l < 0.5) ? l * (1.0 + s) : l + s - (l * s);
+                var temp1 = 2.0 * l - temp2;
+
+                r = GetColorComponent(temp1, temp2, rangedH + 1.0 / 3.0);
+                g = GetColorComponent(temp1, temp2, rangedH);
+                b = GetColorComponent(temp1, temp2, rangedH - 1.0 / 3.0);
+            }
+        }
+        return new Rgb {
+            R = 255.0 * r,
+            G = 255.0 * g,
+            B = 255.0 * b
+        };
+    }
+
+    private static double GetColorComponent(double temp1, double temp2, double temp3)
+    {
+        temp3 = MoveIntoRange(temp3);
+        if (temp3 < 1.0 / 6.0) {
+            return temp1 + (temp2 - temp1) * 6.0 * temp3;
+        }
+
+        if (temp3 < 0.5) {
+            return temp2;
+        }
+
+        if (temp3 < 2.0 / 3.0) {
+            return temp1 + ((temp2 - temp1) * ((2.0 / 3.0) - temp3) * 6.0);
+        }
+
+        return temp1;
+    }
+
+    private static double MoveIntoRange(double temp3)
+    {
+        if (temp3 < 0.0) return temp3 + 1.0;
+        if (temp3 > 1.0) return temp3 - 1.0;
+        return temp3;
+    }
+}
+
+public interface IHsv : IColorSpace
+{
+
+    double H { get; set; }
+
+    double S { get; set; }
+
+    double V { get; set; }
+
+}
+
+public class Hsv : ColorSpace, IHsv
+{
+
+    public double H { get; set; }
+
+    public double S { get; set; }
+
+    public double V { get; set; }
+
+
+    public override void Initialize(IRgb color)
+    {
+        HsvConverter.ToColorSpace(color,this);
+    }
+
+    public override IRgb ToRgb()
+    {
+        return HsvConverter.ToColor(this);
     }
 }
