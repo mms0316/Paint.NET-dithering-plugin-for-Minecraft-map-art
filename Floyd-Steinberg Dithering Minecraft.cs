@@ -48,8 +48,6 @@ CheckboxControl InputPaletteWhiteTerracotta = false; // Palette: White Terracott
 IntSliderControl InputHue = 0; // [-180,180,2] Hue
 IntSliderControl InputSaturation = 100; // [0,400,3] Saturation
 IntSliderControl InputLightness = 0; // [-100,100,5] Lightness
-IntSliderControl InputBrightness = 0; // [-100,100,5] Brightness
-IntSliderControl InputContrast = 0; // [-100,100,5] Contrast
 #endregion
 
 enum ColorMethod
@@ -80,96 +78,6 @@ void Render(Surface dst, Surface src, Rectangle rect)
     {
         UnaryPixelOp pixelOp = new UnaryPixelOps.HueSaturationLightness(InputHue, InputSaturation, InputLightness);
         pixelOp.Apply(dst, src, rect);
-    }
-
-    // Preprocessing: Brightness, Contrast
-    if (InputBrightness != 0 || InputContrast != 0)
-    {
-        int multiply;
-        int divide;
-        byte[] rgbTable = new byte[65536];
-
-        if (InputContrast < 0)
-        {
-            multiply = InputContrast + 100;
-            divide = 100;
-        }
-        else if (InputContrast > 0)
-        {
-            multiply = 100;
-            divide = 100 - InputContrast;
-        }
-        else
-        {
-            multiply = 1;
-            divide = 1;
-        }
-
-        if (divide == 0)
-        {
-            for (int intensity = 0; intensity < 256; ++intensity)
-            {
-                if (intensity + InputBrightness < 128)
-                {
-                    rgbTable[intensity] = 0;
-                }
-                else
-                {
-                    rgbTable[intensity] = 255;
-                }
-            }
-        }
-        else if (divide == 100)
-        {
-            for (int intensity = 0; intensity < 256; ++intensity)
-            {
-                int shift = (intensity - 127) * multiply / divide + 127 - intensity + InputBrightness;
-
-                for (int col = 0; col < 256; ++col)
-                {
-                    int index = (intensity * 256) + col;
-                    rgbTable[index] = Int32Util.ClampToByte(col + shift);
-                }
-            }
-        }
-        else
-        {
-            for (int intensity = 0; intensity < 256; ++intensity)
-            {
-                int shift = (intensity - 127 + InputBrightness) * multiply / divide + 127 - intensity;
-
-                for (int col = 0; col < 256; ++col)
-                {
-                    int index = (intensity * 256) + col;
-                    rgbTable[index] = Int32Util.ClampToByte(col + shift);
-                }
-            }
-        }
-
-        for (int y = rect.Top; y < rect.Bottom; y++)
-        {
-            if (IsCancelRequested) return;
-            for (int x = rect.Left; x < rect.Right; x++)
-            {
-                ColorBgra currentPixel = dst[x,y];
-                int i = currentPixel.GetIntensityByte();
-                if (divide == 0)
-                {
-                    uint c = rgbTable[i];
-                    dst[x,y] = ColorBgra.FromUInt32((currentPixel.Bgra & 0xff000000) | c | (c << 8) | (c << 16));
-                }
-                else
-                {
-                    int shiftIndex = i * 256;
-
-                    currentPixel.R = rgbTable[shiftIndex + currentPixel.R];
-                    currentPixel.G = rgbTable[shiftIndex + currentPixel.G];
-                    currentPixel.B = rgbTable[shiftIndex + currentPixel.B];
-
-                    dst[x,y] = currentPixel;
-                }
-            }
-        }
     }
 
     IColorSpaceComparison comparer;
