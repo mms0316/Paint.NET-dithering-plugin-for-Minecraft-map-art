@@ -42,8 +42,13 @@ https://web.archive.org/web/20070927122512/http://www.efg2.com/Lab/Library/Image
 #region UICode
 ListBoxControl InputColorMethod = 0; // Color comparison method|CIE2000|Weighted Euclidean|Euclidean|CIE94|CIE76|CMC I:c
 ListBoxControl InputDitheringMethod = 0; // Dithering method|Floyd-Steinberg (1/16)|None (Approximate colors)|Jarvis-Judice-Ninke (1/48)|Burkes (1/32)|Sierra-2-4A (1/4)|Sierra2 (1/16)|Sierra3 (1/32)|Stucki (1/42)|Custom (1/32)
-CheckboxControl InputPaletteShadedWhite = true; // Palette: Shaded white wool (#DCDCDC and #B4B4B4). Tweak for skin layers.
+CheckboxControl InputPaletteDarkWhite = true; // Palette: Dark white wool (#DCDCDC). Tweak for skin.
+CheckboxControl InputPaletteShadedWhite = true; // Palette: Shaded white wool (#B4B4B4). Tweak for skin.
+CheckboxControl InputPaletteDarkSand = true; // Palette: Dark sand (#AEA473). Tweak for skin.
+CheckboxControl InputPaletteShadedSand = true; // Palette: Shaded sand (#D5C98C). Tweak for skin.
 CheckboxControl InputPaletteSand = true; // Palette: Sand
+CheckboxControl InputPalettePink = true; // Palette: Pink wool (#F27FA5). Tweak for skin.
+CheckboxControl InputPaletteLightGray = true; // Palette: Light gray wool (#999999). Tweak for skin.
 CheckboxControl InputPalettePrismarine = true; // Palette: Prismarine
 CheckboxControl InputPaletteTNT = true; // Palette: TNT
 CheckboxControl InputPaletteIce = true; // Palette: Ice
@@ -119,8 +124,10 @@ void Render(Surface dst, Surface src, Rectangle rect)
 
     if (InputPaletteSand)
     {
-        palette.Add(Color.FromArgb(174, 164, 115));
-        palette.Add(Color.FromArgb(213, 201, 140));
+        if (InputPaletteDarkSand)
+            palette.Add(Color.FromArgb(174, 164, 115));
+        if (InputPaletteShadedSand)
+            palette.Add(Color.FromArgb(213, 201, 140));
         palette.Add(Color.FromArgb(247, 233, 163));
     }
     if (InputPalettePrismarine)
@@ -177,13 +184,19 @@ void Render(Surface dst, Surface src, Rectangle rect)
     palette.Add(Color.FromArgb(0x7FCC19));
     palette.Add(Color.FromArgb(0xAA5974));
     palette.Add(Color.FromArgb(0xD06D8E));
-    palette.Add(Color.FromArgb(0xF27FA5));
+
+    if (InputPalettePink)
+        palette.Add(Color.FromArgb(0xF27FA5));
+
     palette.Add(Color.FromArgb(0x353535));
     palette.Add(Color.FromArgb(0x414141));
     palette.Add(Color.FromArgb(0x4C4C4C));
     palette.Add(Color.FromArgb(0x6C6C6C));
     palette.Add(Color.FromArgb(0x848484));
-    palette.Add(Color.FromArgb(0x999999));
+
+    if (InputPaletteLightGray)
+        palette.Add(Color.FromArgb(0x999999));
+
     palette.Add(Color.FromArgb(0x35596C));
     palette.Add(Color.FromArgb(0x416D84));
     palette.Add(Color.FromArgb(0x4C7F99));
