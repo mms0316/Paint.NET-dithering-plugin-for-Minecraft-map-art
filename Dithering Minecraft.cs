@@ -40,8 +40,10 @@ https://web.archive.org/web/20070927122512/http://www.efg2.com/Lab/Library/Image
 */
 
 #region UICode
-ListBoxControl InputColorMethod = 0; // Color comparison method|CIE2000|Weighted Euclidean|Euclidean|CIE94|CIE76|CMC I:c
+ListBoxControl InputColorMethod = 0; // Color comparison method|Weighted Euclidean|Euclidean|CIE2000|CIE94|CIE76|CMC I:c
 ListBoxControl InputDitheringMethod = 0; // Dithering method|Floyd-Steinberg (1/16)|None (Approximate colors)|Jarvis-Judice-Ninke (1/48)|Burkes (1/32)|Sierra-2-4A (1/4)|Sierra2 (1/16)|Sierra3 (1/32)|Stucki (1/42)|Custom (1/32)
+CheckboxControl InputPalette3d = true; // Palette: 3D colors
+CheckboxControl InputPaletteSkinTweak = false; // Palette: Tweak for skin.
 CheckboxControl InputPaletteDarkWhite = true; // Palette: Dark white wool (#DCDCDC). Tweak for skin.
 CheckboxControl InputPaletteShadedWhite = true; // Palette: Shaded white wool (#B4B4B4). Tweak for skin.
 CheckboxControl InputPaletteDarkSand = true; // Palette: Dark sand (#AEA473). Tweak for skin.
@@ -54,6 +56,7 @@ CheckboxControl InputPaletteTNT = true; // Palette: TNT
 CheckboxControl InputPaletteIce = true; // Palette: Ice
 CheckboxControl InputPaletteDirt = true; // Palette: Dirt
 CheckboxControl InputPaletteWhiteTerracotta = false; // Palette: White Terracotta
+CheckboxControl InputPaletteLapis = false; // Palette: Lapis Lazuli
 IntSliderControl InputHue = 0; // [-180,180,2] Hue
 IntSliderControl InputSaturation = 100; // [0,400,3] Saturation
 IntSliderControl InputLightness = 0; // [-100,100,5] Lightness
@@ -99,15 +102,15 @@ void Render(Surface dst, Surface src, Rectangle rect)
 
     switch ((ColorMethod)InputColorMethod)
     {
-        case ColorMethod.CIE2000:
-        default:
-            comparer = new CieDe2000Comparison();
-            break;
         case ColorMethod.WeightedEuclidean:
-            comparer = new WeightedEuclidianComparison();
+        default:
+        comparer = new WeightedEuclidianComparison();
             break;
         case ColorMethod.Euclidean:
             comparer = new EuclidianComparison();
+            break;
+        case ColorMethod.CIE2000:
+            comparer = new CieDe2000Comparison();
             break;
         case ColorMethod.CIE94:
             comparer = new Cie94Comparison();
@@ -124,100 +127,168 @@ void Render(Surface dst, Surface src, Rectangle rect)
 
     if (InputPaletteSand)
     {
-        if (InputPaletteDarkSand)
+        if (!InputPaletteSkinTweak && InputPaletteDarkSand && InputPalette3d)
             palette.Add(Color.FromArgb(174, 164, 115));
-        if (InputPaletteShadedSand)
+        if (!InputPaletteSkinTweak && InputPaletteShadedSand)
             palette.Add(Color.FromArgb(213, 201, 140));
-        palette.Add(Color.FromArgb(247, 233, 163));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(247, 233, 163));
     }
-    if (InputPalettePrismarine)
+    if (!InputPaletteSkinTweak && InputPalettePrismarine)
     {
-        palette.Add(Color.FromArgb(64, 154, 150));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(64, 154, 150));
         palette.Add(Color.FromArgb(79, 188, 183));
-        palette.Add(Color.FromArgb(92, 219, 213));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(92, 219, 213));
     }
-    if (InputPaletteTNT)
+    if (!InputPaletteSkinTweak && InputPaletteTNT)
     {
-        palette.Add(Color.FromArgb(180, 0, 0));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(180, 0, 0));
         palette.Add(Color.FromArgb(220, 0, 0));
-        palette.Add(Color.FromArgb(255, 0, 0));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(255, 0, 0));
     }
-    if (InputPaletteDirt)
+    if (!InputPaletteSkinTweak && InputPaletteDirt)
     {
-        palette.Add(Color.FromArgb(106, 76, 54));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(106, 76, 54));
         palette.Add(Color.FromArgb(130, 94, 66));
-        palette.Add(Color.FromArgb(151, 109, 77));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(151, 109, 77));
     }
     if (InputPaletteIce)
     {
-        palette.Add(Color.FromArgb(112, 112, 180));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(112, 112, 180));
         palette.Add(Color.FromArgb(138, 138, 220));
-        palette.Add(Color.FromArgb(160, 160, 255));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(160, 160, 255));
     }
     if (InputPaletteWhiteTerracotta)
     {
-        palette.Add(Color.FromArgb(147, 124, 113));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(147, 124, 113));
         palette.Add(Color.FromArgb(180, 152, 138));
-        palette.Add(Color.FromArgb(209, 177, 161));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(209, 177, 161));
+    }
+    if (InputPaletteLapis)
+    {
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(52, 90, 180));
+        palette.Add(Color.FromArgb(63, 110, 220));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(74, 128, 255));
     }
 
-    if (InputPaletteShadedWhite)
+    if (!InputPaletteSkinTweak && InputPaletteShadedWhite)
     {
-        palette.Add(Color.FromArgb(0xB4B4B4));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0xB4B4B4));
         palette.Add(Color.FromArgb(0xDCDCDC));
     }
-    palette.Add(Color.FromArgb(0xFFFFFF));
-    palette.Add(Color.FromArgb(0x985924));
-    palette.Add(Color.FromArgb(0xBA6D2C));
-    palette.Add(Color.FromArgb(0xD87F33));
-    palette.Add(Color.FromArgb(0x7D3598));
-    palette.Add(Color.FromArgb(0x9941BA));
-    palette.Add(Color.FromArgb(0xB24CD8));
-    palette.Add(Color.FromArgb(0x486C98));
-    palette.Add(Color.FromArgb(0x5884BA));
-    palette.Add(Color.FromArgb(0x6699D8));
-    palette.Add(Color.FromArgb(0xA1A124));
-    palette.Add(Color.FromArgb(0xC5C52C));
-    palette.Add(Color.FromArgb(0xE5E533));
-    palette.Add(Color.FromArgb(0x599011));
-    palette.Add(Color.FromArgb(0x6DB015));
-    palette.Add(Color.FromArgb(0x7FCC19));
-    palette.Add(Color.FromArgb(0xAA5974));
-    palette.Add(Color.FromArgb(0xD06D8E));
 
-    if (InputPalettePink)
+    if (InputPalette3d)
+        palette.Add(Color.FromArgb(0xFFFFFF));
+
+    if (!InputPaletteSkinTweak)
+    {
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x985924));
+        palette.Add(Color.FromArgb(0xBA6D2C));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0xD87F33));
+
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x7D3598));
+        palette.Add(Color.FromArgb(0x9941BA));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0xB24CD8));
+
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x486C98));
+        palette.Add(Color.FromArgb(0x5884BA));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x6699D8));
+
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0xA1A124));
+        palette.Add(Color.FromArgb(0xC5C52C));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0xE5E533));
+
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x599011));
+        palette.Add(Color.FromArgb(0x6DB015));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x7FCC19));
+
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0xAA5974));
+        palette.Add(Color.FromArgb(0xD06D8E));
+    }
+
+    if (InputPalettePink && InputPalette3d)
         palette.Add(Color.FromArgb(0xF27FA5));
 
-    palette.Add(Color.FromArgb(0x353535));
-    palette.Add(Color.FromArgb(0x414141));
-    palette.Add(Color.FromArgb(0x4C4C4C));
-    palette.Add(Color.FromArgb(0x6C6C6C));
-    palette.Add(Color.FromArgb(0x848484));
+    if (!InputPaletteSkinTweak)
+    {
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x353535));
+        palette.Add(Color.FromArgb(0x414141));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x4C4C4C));
 
-    if (InputPaletteLightGray)
-        palette.Add(Color.FromArgb(0x999999));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x6C6C6C));
+        palette.Add(Color.FromArgb(0x848484));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x999999));
 
-    palette.Add(Color.FromArgb(0x35596C));
-    palette.Add(Color.FromArgb(0x416D84));
-    palette.Add(Color.FromArgb(0x4C7F99));
-    palette.Add(Color.FromArgb(0x592C7D));
-    palette.Add(Color.FromArgb(0x6D3699));
-    palette.Add(Color.FromArgb(0x7F3FB2));
-    palette.Add(Color.FromArgb(0x24357D));
-    palette.Add(Color.FromArgb(0x2C4199));
-    palette.Add(Color.FromArgb(0x334CB2));
-    palette.Add(Color.FromArgb(0x483524));
-    palette.Add(Color.FromArgb(0x58412C));
-    palette.Add(Color.FromArgb(0x664C33));
-    palette.Add(Color.FromArgb(0x485924));
-    palette.Add(Color.FromArgb(0x586D2C));
-    palette.Add(Color.FromArgb(0x667F33));
-    palette.Add(Color.FromArgb(0x6C2424));
-    palette.Add(Color.FromArgb(0x842C2C));
-    palette.Add(Color.FromArgb(0x993333));
-    palette.Add(Color.FromArgb(0x111111));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x35596C));
+        palette.Add(Color.FromArgb(0x416D84));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x4C7F99));
+
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x592C7D));
+        palette.Add(Color.FromArgb(0x6D3699));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x7F3FB2));
+
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x24357D));
+        palette.Add(Color.FromArgb(0x2C4199));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x334CB2));
+
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x483524));
+        palette.Add(Color.FromArgb(0x58412C));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x664C33));
+
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x485924));
+        palette.Add(Color.FromArgb(0x586D2C));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x667F33));
+
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x6C2424));
+        palette.Add(Color.FromArgb(0x842C2C));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x993333));
+    }
+
+    if (InputPalette3d)
+        palette.Add(Color.FromArgb(0x111111));
     palette.Add(Color.FromArgb(0x151515));
-    palette.Add(Color.FromArgb(0x191919));
+    if (InputPalette3d)
+        palette.Add(Color.FromArgb(0x191919));
     
     Color BestColor;
     ColorBgra BestColora;
