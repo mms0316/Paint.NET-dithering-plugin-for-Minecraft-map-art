@@ -331,7 +331,7 @@ void Render(Surface dst, Surface src, Rectangle rect)
                     }
                     if (y + 1 < rect.Bottom)
                     {
-                        if (x - 1 > rect.Left)
+                        if (x - 1 >= rect.Left)
                         {
                             dst[x - 1, y + 1] = ColorBgra.FromBgra(
                                 PlusTruncate(dst[x - 1, y + 1].B, (errorB * 3) >> 4),
@@ -395,7 +395,7 @@ void Render(Surface dst, Surface src, Rectangle rect)
                     }
                     if (y + 1 < rect.Bottom)
                     {
-                        if (x - 1 > rect.Left)
+                        if (x - 1 >= rect.Left)
                         {
                             dst[x - 1, y + 1] = ColorBgra.FromBgra(
                                 PlusTruncate(dst[x - 1, y + 1].B, errorB >> 3),
@@ -477,10 +477,10 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         ApplyDitherMulShift(dst, x + 2, y + 0, errorR, errorG, errorB, 1, 3);
                     if (y + 1 < rect.Bottom)
                     {
-                        if (x - 2 > rect.Left)
+                        if (x - 2 >= rect.Left)
                             ApplyDitherMulShift(dst, x - 2, y + 1, errorR, errorG, errorB, 1, 4);
 
-                        if (x - 1 > rect.Left)
+                        if (x - 1 >= rect.Left)
                             ApplyDitherMulShift(dst, x - 1, y + 1, errorR, errorG, errorB, 1, 3);
 
                         ApplyDitherMulShift(dst, x + 0, y + 1, errorR, errorG, errorB, 1, 2);
@@ -512,7 +512,7 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         ApplyDitherMulShift(dst, x + 1, y + 0, errorR, errorG, errorB, 1, 1);
                     if (y + 1 < rect.Bottom)
                     {
-                        if (x - 1 > rect.Left)
+                        if (x - 1 >= rect.Left)
                             ApplyDitherMulShift(dst, x - 1, y + 1, errorR, errorG, errorB, 1, 2);
 
                         ApplyDitherMulShift(dst, x + 0, y + 1, errorR, errorG, errorB, 1, 1);
@@ -541,9 +541,9 @@ void Render(Surface dst, Surface src, Rectangle rect)
 
                     if (y + 1 < rect.Bottom)
                     {
-                        if (x - 2 > rect.Left)
+                        if (x - 2 >= rect.Left)
                             ApplyDitherMulShift(dst, x - 2, y + 1, errorR, errorG, errorB, 1, 4);
-                        if (x - 1 > rect.Left)
+                        if (x - 1 >= rect.Left)
                             ApplyDitherMulShift(dst, x - 1, y + 1, errorR, errorG, errorB, 1, 3);
 
                         ApplyDitherMulShift(dst, x + 0, y + 1, errorR, errorG, errorB, 3, 4);
@@ -578,9 +578,9 @@ void Render(Surface dst, Surface src, Rectangle rect)
 
                     if (y + 1 < rect.Bottom)
                     {
-                        if (x - 2 > rect.Left)
+                        if (x - 2 >= rect.Left)
                             ApplyDitherMulShift(dst, x - 2, y + 1, errorR, errorG, errorB, 1, 4);
-                        if (x - 1 > rect.Left)
+                        if (x - 1 >= rect.Left)
                             ApplyDitherMulShift(dst, x - 1, y + 1, errorR, errorG, errorB, 1, 3);
 
                         ApplyDitherMulShift(dst, x + 0, y + 1, errorR, errorG, errorB, 5, 5);
@@ -594,7 +594,7 @@ void Render(Surface dst, Surface src, Rectangle rect)
 
                     if (y + 2 < rect.Bottom)
                     {
-                        if (x - 1 > rect.Left)
+                        if (x - 1 >= rect.Left)
                             ApplyDitherMulShift(dst, x - 1, y + 2, errorR, errorG, errorB, 1, 4);
 
                         ApplyDitherMulShift(dst, x + 0, y + 2, errorR, errorG, errorB, 3, 5);
@@ -627,10 +627,10 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         ApplyDitherMulDiv(dst, x + 2, y + 0, errorR, errorG, errorB, 4, div);
                     if (y + 1 < rect.Bottom)
                     {
-                        if (x - 2 > rect.Left)
+                        if (x - 2 >= rect.Left)
                             ApplyDitherMulDiv(dst, x - 2, y + 1, errorR, errorG, errorB, 2, div);
 
-                        if (x - 1 > rect.Left)
+                        if (x - 1 >= rect.Left)
                             ApplyDitherMulDiv(dst, x - 1, y + 1, errorR, errorG, errorB, 4, div);
 
                         ApplyDitherMulDiv(dst, x + 0, y + 1, errorR, errorG, errorB, 8, div);
@@ -643,10 +643,10 @@ void Render(Surface dst, Surface src, Rectangle rect)
                     }
                     if (y + 2 < rect.Bottom)
                     {
-                        if (x - 2 > rect.Left)
+                        if (x - 2 >= rect.Left)
                             ApplyDitherMulDiv(dst, x - 2, y + 2, errorR, errorG, errorB, 1, div);
 
-                        if (x - 1 > rect.Left)
+                        if (x - 1 >= rect.Left)
                             ApplyDitherMulDiv(dst, x - 1, y + 2, errorR, errorG, errorB, 2, div);
 
                         ApplyDitherMulDiv(dst, x + 0, y + 2, errorR, errorG, errorB, 4, div);
@@ -681,10 +681,10 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         ApplyDitherMulDiv(dst, x + 2, y + 0, errorR, errorG, errorB, 5, div);
                     if (y + 1 < rect.Bottom)
                     {
-                        if (x - 2 > rect.Left)
+                        if (x - 2 >= rect.Left)
                             ApplyDitherMulDiv(dst, x - 2, y + 1, errorR, errorG, errorB, 3, div);
 
-                        if (x - 1 > rect.Left)
+                        if (x - 1 >= rect.Left)
                             ApplyDitherMulDiv(dst, x - 1, y + 1, errorR, errorG, errorB, 5, div);
 
                         ApplyDitherMulDiv(dst, x + 0, y + 1, errorR, errorG, errorB, 7, div);
@@ -697,10 +697,10 @@ void Render(Surface dst, Surface src, Rectangle rect)
                     }
                     if (y + 2 < rect.Bottom)
                     {
-                        if (x - 2 > rect.Left)
+                        if (x - 2 >= rect.Left)
                             ApplyDitherMulDiv(dst, x - 2, y + 2, errorR, errorG, errorB, 1, div);
 
-                        if (x - 1 > rect.Left)
+                        if (x - 1 >= rect.Left)
                             ApplyDitherMulDiv(dst, x - 1, y + 2, errorR, errorG, errorB, 3, div);
 
                         ApplyDitherMulDiv(dst, x + 0, y + 2, errorR, errorG, errorB, 5, div);
