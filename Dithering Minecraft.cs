@@ -57,6 +57,8 @@ CheckboxControl InputPaletteIce = true; // Palette: Ice
 CheckboxControl InputPaletteDirt = true; // Palette: Dirt
 CheckboxControl InputPaletteWhiteTerracotta = false; // Palette: White Terracotta
 CheckboxControl InputPaletteLapis = false; // Palette: Lapis Lazuli
+CheckboxControl InputPaletteMushroomStem = false; // Palette: Mushroom Stem
+CheckboxControl InputPaletteCrimsonNylium = false; // Palette: Crimson Nylium
 IntSliderControl InputHue = 0; // [-180,180,2] Hue
 IntSliderControl InputSaturation = 100; // [0,400,3] Saturation
 IntSliderControl InputLightness = 0; // [-100,100,5] Lightness
@@ -289,7 +291,25 @@ void Render(Surface dst, Surface src, Rectangle rect)
     palette.Add(Color.FromArgb(0x151515));
     if (InputPalette3d)
         palette.Add(Color.FromArgb(0x191919));
-    
+
+    if (InputPaletteMushroomStem)
+    {
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(140, 140, 140));
+        palette.Add(Color.FromArgb(171, 171, 171));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(199, 199, 199));
+    }
+
+    if (InputPaletteCrimsonNylium)
+    {
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(133, 33, 34));
+        palette.Add(Color.FromArgb(163, 41, 42));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(189, 48, 49));
+    }
+
     Color BestColor;
     ColorBgra BestColora;
     
