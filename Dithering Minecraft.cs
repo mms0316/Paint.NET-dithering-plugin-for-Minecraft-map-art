@@ -43,22 +43,33 @@ https://web.archive.org/web/20070927122512/http://www.efg2.com/Lab/Library/Image
 ListBoxControl InputColorMethod = 2; // Color comparison method|Weighted Euclidean|Euclidean|CIE2000|CIE94|CIE76|CMC I:c
 ListBoxControl InputDitheringMethod = 0; // Dithering method|Floyd-Steinberg (1/16)|None (Approximate colors)|Jarvis-Judice-Ninke (1/48)|Burkes (1/32)|Sierra-2-4A (1/4)|Sierra2 (1/16)|Sierra3 (1/32)|Stucki (1/42)|Custom (1/32)
 CheckboxControl InputPalette3d = true; // Palette: 3D colors
-CheckboxControl InputPaletteSkinTweak = false; // Palette: Tweak for skin.
-CheckboxControl InputPaletteDarkWhite = true; // Palette: Dark white wool (#DCDCDC). Tweak for skin.
-CheckboxControl InputPaletteShadedWhite = true; // Palette: Shaded white wool (#B4B4B4). Tweak for skin.
-CheckboxControl InputPaletteDarkSand = true; // Palette: Dark sand (#AEA473). Tweak for skin.
-CheckboxControl InputPaletteShadedSand = true; // Palette: Shaded sand (#D5C98C). Tweak for skin.
-CheckboxControl InputPaletteSand = true; // Palette: Sand
-CheckboxControl InputPalettePink = true; // Palette: Pink wool (#F27FA5). Tweak for skin.
-CheckboxControl InputPaletteLightGray = true; // Palette: Light gray wool (#999999). Tweak for skin.
-CheckboxControl InputPalettePrismarine = true; // Palette: Prismarine
-CheckboxControl InputPaletteTNT = true; // Palette: TNT
-CheckboxControl InputPaletteIce = true; // Palette: Ice
-CheckboxControl InputPaletteDirt = true; // Palette: Dirt
-CheckboxControl InputPaletteWhiteTerracotta = false; // Palette: White Terracotta
-CheckboxControl InputPaletteLapis = false; // Palette: Lapis Lazuli
-CheckboxControl InputPaletteMushroomStem = false; // Palette: Mushroom Stem
-CheckboxControl InputPaletteCrimsonNylium = false; // Palette: Crimson Nylium
+CheckboxControl InputPaletteSkinTweak = true; // {InputPalette3d} Palette: Tweak for skin
+CheckboxControl InputPaletteSandDark = true; // {InputPaletteSkinTweak} Sand (dark)
+CheckboxControl InputPaletteSandMedium = true; // {InputPaletteSkinTweak} Sand (medium)
+CheckboxControl InputPaletteSandLight = true; // {InputPaletteSkinTweak} Sand (light)
+CheckboxControl InputPaletteWhiteDark = false; // {InputPaletteSkinTweak} White (dark)
+CheckboxControl InputPaletteWhiteMedium = false; // {InputPaletteSkinTweak} White (medium)
+CheckboxControl InputPaletteWhiteLight = true; // {InputPaletteSkinTweak} White (light)
+CheckboxControl InputPalettePinkDark = true; // {InputPaletteSkinTweak} Pink (dark)
+CheckboxControl InputPalettePinkMedium = true; // {InputPaletteSkinTweak} Pink (medium)
+CheckboxControl InputPalettePinkLight = true; // {InputPaletteSkinTweak} Pink (light)
+CheckboxControl InputPaletteOrangeDark = true; // {InputPaletteSkinTweak} Orange (dark)
+CheckboxControl InputPaletteOrangeMedium = true; // {InputPaletteSkinTweak} Orange (medium)
+CheckboxControl InputPaletteOrangeLight = true; // {InputPaletteSkinTweak} Orange (light)
+CheckboxControl InputPalettePrismarine = true; // {!InputPaletteSkinTweak} Prismarine
+CheckboxControl InputPaletteTNT = true; // {!InputPaletteSkinTweak} TNT
+CheckboxControl InputPaletteIce = true; // {!InputPaletteSkinTweak} Ice
+CheckboxControl InputPaletteDirt = true; // {!InputPaletteSkinTweak} Dirt
+CheckboxControl InputPaletteWhiteTerracotta = true; // {!InputPaletteSkinTweak} White Terracotta
+CheckboxControl InputPaletteWhiteTerracottaDark = true; // {InputPaletteSkinTweak} White Terracotta (dark)
+CheckboxControl InputPaletteWhiteTerracottaMedium = true; // {InputPaletteSkinTweak} White Terracotta (medium)
+CheckboxControl InputPaletteWhiteTerracottaLight = true; // {InputPaletteSkinTweak} White Terracotta (light)
+CheckboxControl InputPaletteLapis = false; // {!InputPaletteSkinTweak} Lapis Lazuli
+CheckboxControl InputPaletteMushroomStem = true; // {!InputPaletteSkinTweak} Mushroom Stem
+CheckboxControl InputPaletteMushroomStemDark = false; // {InputPaletteSkinTweak} Mushroom Stem (dark)
+CheckboxControl InputPaletteMushroomStemMedium = false; // {InputPaletteSkinTweak} Mushroom Stem (medium)
+CheckboxControl InputPaletteMushroomStemLight = false; // {InputPaletteSkinTweak} Mushroom Stem (light)
+CheckboxControl InputPaletteCrimsonNylium = false; // {!InputPaletteSkinTweak} Crimson Nylium
 IntSliderControl InputHue = 0; // [-180,180,2] Hue
 IntSliderControl InputSaturation = 100; // [0,400,3] Saturation
 IntSliderControl InputLightness = 0; // [-100,100,5] Lightness
@@ -106,7 +117,7 @@ void Render(Surface dst, Surface src, Rectangle rect)
     {
         case ColorMethod.WeightedEuclidean:
         default:
-        comparer = new WeightedEuclidianComparison();
+            comparer = new WeightedEuclidianComparison();
             break;
         case ColorMethod.Euclidean:
             comparer = new EuclidianComparison();
@@ -127,76 +138,113 @@ void Render(Surface dst, Surface src, Rectangle rect)
 
     var palette = new List<Color>();
 
-    if (InputPaletteSand)
+    if (InputPaletteSkinTweak)
     {
-        if (!InputPaletteSkinTweak && InputPaletteDarkSand && InputPalette3d)
+        if (InputPaletteSandDark)
+            palette.Add(Color.FromArgb(0xAEA473));
+        if (InputPaletteSandMedium)
+            palette.Add(Color.FromArgb(0xD5C98C));
+        if (InputPaletteSandLight)
+            palette.Add(Color.FromArgb(0xF7E9A3));
+
+        if (InputPaletteWhiteDark)
+            palette.Add(Color.FromArgb(0xB4B4B4));
+        if (InputPaletteWhiteMedium)
+            palette.Add(Color.FromArgb(0xDCDCDC));
+        if (InputPaletteWhiteLight)
+            palette.Add(Color.FromArgb(0xFFFFFF));
+
+        if (InputPalettePinkDark)
+            palette.Add(Color.FromArgb(0xAA5974));
+        if (InputPalettePinkMedium)
+            palette.Add(Color.FromArgb(0xD06D8E));
+        if (InputPalettePinkLight)
+            palette.Add(Color.FromArgb(0xF27FA5));
+
+        if (InputPaletteOrangeDark)
+            palette.Add(Color.FromArgb(0x985924));
+        if (InputPaletteOrangeMedium)
+            palette.Add(Color.FromArgb(0xBA6D2C));
+        if (InputPaletteOrangeLight)
+            palette.Add(Color.FromArgb(0xD87F33));
+
+        if (InputPaletteWhiteTerracottaDark)
+            palette.Add(Color.FromArgb(0x937C71));
+        if (InputPaletteWhiteTerracottaMedium)
+            palette.Add(Color.FromArgb(0xB4988A));
+        if (InputPaletteWhiteTerracottaLight)
+            palette.Add(Color.FromArgb(0xD1B1A1));
+
+        if (InputPaletteMushroomStemDark)
+            palette.Add(Color.FromArgb(0x8C8C8C));
+        if (InputPaletteMushroomStemMedium)
+            palette.Add(Color.FromArgb(0xABABAB));
+        if (InputPaletteMushroomStemLight)
+            palette.Add(Color.FromArgb(0xC7C7C7));
+    }
+    else
+    {
+        if (InputPalette3d)
             palette.Add(Color.FromArgb(174, 164, 115));
-        if (!InputPaletteSkinTweak && InputPaletteShadedSand)
-            palette.Add(Color.FromArgb(213, 201, 140));
+        palette.Add(Color.FromArgb(213, 201, 140));
         if (InputPalette3d)
             palette.Add(Color.FromArgb(247, 233, 163));
-    }
-    if (!InputPaletteSkinTweak && InputPalettePrismarine)
-    {
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(64, 154, 150));
-        palette.Add(Color.FromArgb(79, 188, 183));
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(92, 219, 213));
-    }
-    if (!InputPaletteSkinTweak && InputPaletteTNT)
-    {
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(180, 0, 0));
-        palette.Add(Color.FromArgb(220, 0, 0));
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(255, 0, 0));
-    }
-    if (!InputPaletteSkinTweak && InputPaletteDirt)
-    {
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(106, 76, 54));
-        palette.Add(Color.FromArgb(130, 94, 66));
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(151, 109, 77));
-    }
-    if (InputPaletteIce)
-    {
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(112, 112, 180));
-        palette.Add(Color.FromArgb(138, 138, 220));
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(160, 160, 255));
-    }
-    if (InputPaletteWhiteTerracotta)
-    {
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(147, 124, 113));
-        palette.Add(Color.FromArgb(180, 152, 138));
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(209, 177, 161));
-    }
-    if (InputPaletteLapis)
-    {
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(52, 90, 180));
-        palette.Add(Color.FromArgb(63, 110, 220));
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(74, 128, 255));
-    }
 
-    if (!InputPaletteSkinTweak && InputPaletteShadedWhite)
-    {
+        if (InputPalettePrismarine)
+        {
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(64, 154, 150));
+            palette.Add(Color.FromArgb(79, 188, 183));
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(92, 219, 213));
+        }
+        if (InputPaletteTNT)
+        {
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(180, 0, 0));
+            palette.Add(Color.FromArgb(220, 0, 0));
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(255, 0, 0));
+        }
+        if (InputPaletteDirt)
+        {
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(106, 76, 54));
+            palette.Add(Color.FromArgb(130, 94, 66));
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(151, 109, 77));
+        }
+        if (InputPaletteIce)
+        {
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(112, 112, 180));
+            palette.Add(Color.FromArgb(138, 138, 220));
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(160, 160, 255));
+        }
+        if (InputPaletteWhiteTerracotta)
+        {
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(147, 124, 113));
+            palette.Add(Color.FromArgb(180, 152, 138));
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(209, 177, 161));
+        }
+        if (InputPaletteLapis)
+        {
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(52, 90, 180));
+            palette.Add(Color.FromArgb(63, 110, 220));
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(74, 128, 255));
+        }
+
         if (InputPalette3d)
             palette.Add(Color.FromArgb(0xB4B4B4));
         palette.Add(Color.FromArgb(0xDCDCDC));
-    }
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0xFFFFFF));
 
-    if (InputPalette3d)
-        palette.Add(Color.FromArgb(0xFFFFFF));
-
-    if (!InputPaletteSkinTweak)
-    {
         if (InputPalette3d)
             palette.Add(Color.FromArgb(0x985924));
         palette.Add(Color.FromArgb(0xBA6D2C));
@@ -230,13 +278,9 @@ void Render(Surface dst, Surface src, Rectangle rect)
         if (InputPalette3d)
             palette.Add(Color.FromArgb(0xAA5974));
         palette.Add(Color.FromArgb(0xD06D8E));
-    }
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0xF27FA5));
 
-    if (InputPalettePink && InputPalette3d)
-        palette.Add(Color.FromArgb(0xF27FA5));
-
-    if (!InputPaletteSkinTweak)
-    {
         if (InputPalette3d)
             palette.Add(Color.FromArgb(0x353535));
         palette.Add(Color.FromArgb(0x414141));
@@ -284,30 +328,30 @@ void Render(Surface dst, Surface src, Rectangle rect)
         palette.Add(Color.FromArgb(0x842C2C));
         if (InputPalette3d)
             palette.Add(Color.FromArgb(0x993333));
-    }
 
-    if (InputPalette3d)
-        palette.Add(Color.FromArgb(0x111111));
-    palette.Add(Color.FromArgb(0x151515));
-    if (InputPalette3d)
-        palette.Add(Color.FromArgb(0x191919));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x111111));
+        palette.Add(Color.FromArgb(0x151515));
+        if (InputPalette3d)
+            palette.Add(Color.FromArgb(0x191919));
 
-    if (InputPaletteMushroomStem)
-    {
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(140, 140, 140));
-        palette.Add(Color.FromArgb(171, 171, 171));
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(199, 199, 199));
-    }
+        if (InputPaletteMushroomStem)
+        {
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(140, 140, 140));
+            palette.Add(Color.FromArgb(171, 171, 171));
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(199, 199, 199));
+        }
 
-    if (InputPaletteCrimsonNylium)
-    {
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(133, 33, 34));
-        palette.Add(Color.FromArgb(163, 41, 42));
-        if (InputPalette3d)
-            palette.Add(Color.FromArgb(189, 48, 49));
+        if (InputPaletteCrimsonNylium)
+        {
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(133, 33, 34));
+            palette.Add(Color.FromArgb(163, 41, 42));
+            if (InputPalette3d)
+                palette.Add(Color.FromArgb(189, 48, 49));
+        }
     }
 
     Color BestColor;
@@ -744,6 +788,8 @@ Color FindNearestColor(Color color, IList<Color> palette, IColorSpaceComparison 
     var colorRgb = new Rgb { R = color.R, G = color.G, B = color.B};
     double minDistance = Double.MaxValue;
     int bestIndex = 0;
+    int secondBestIndex = 0;
+    double secondBestDistance = minDistance;
 
     for (int i = 0; i < palette.Count; i++)
     {
@@ -752,7 +798,9 @@ Color FindNearestColor(Color color, IList<Color> palette, IColorSpaceComparison 
 
         if (distance < minDistance)
         {
+            secondBestDistance = minDistance;
             minDistance = distance;
+            secondBestIndex = bestIndex;
             bestIndex = i;
             if (minDistance <= Double.Epsilon) break;
         }
@@ -1432,7 +1480,6 @@ public class CmcComparison : IColorSpaceComparison
         return adiv * adiv;
     }
 }
-
 
 public class WeightedEuclidianComparison : IColorSpaceComparison
 {
