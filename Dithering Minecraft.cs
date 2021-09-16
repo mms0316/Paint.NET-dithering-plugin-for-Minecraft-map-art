@@ -40,7 +40,7 @@ https://web.archive.org/web/20070927122512/http://www.efg2.com/Lab/Library/Image
 */
 
 #region UICode
-ListBoxControl InputColorMethod = 0; // Color comparison method|Weighted Euclidean|Euclidean|CIE2000|CIE94|CIE76|CMC I:c
+ListBoxControl InputColorMethod = 2; // Color comparison method|Weighted Euclidean|Euclidean|CIE2000|CIE94|CIE76|CMC I:c
 ListBoxControl InputDitheringMethod = 0; // Dithering method|Floyd-Steinberg (1/16)|None (Approximate colors)|Jarvis-Judice-Ninke (1/48)|Burkes (1/32)|Sierra-2-4A (1/4)|Sierra2 (1/16)|Sierra3 (1/32)|Stucki (1/42)|Custom (1/32)
 CheckboxControl InputPalette3d = true; // Palette: 3D colors
 CheckboxControl InputPaletteSkinTweak = false; // Palette: Tweak for skin.
@@ -66,9 +66,9 @@ IntSliderControl InputLightness = 0; // [-100,100,5] Lightness
 
 enum ColorMethod
 {
-    CIE2000 = 0,
-    WeightedEuclidean,
+    WeightedEuclidean = 0,
     Euclidean,
+    CIE2000,
     CIE94,
     CIE76,
     CMCIC
