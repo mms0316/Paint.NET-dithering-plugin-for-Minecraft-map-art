@@ -41,13 +41,14 @@ https://web.archive.org/web/20070927122512/http://www.efg2.com/Lab/Library/Image
 Worth checking:
 https://shihn.ca/posts/2020/dithering/
 
-v7
+v8
 */
 
 #region UICode
 ListBoxControl InputColorMethod = 4; // Color comparison method|Weighted Euclidean|Euclidean|CIE2000|CIE94|CIE76|CMC I:c
 ListBoxControl InputDitheringMethod = 0; // Dithering method|Floyd-Steinberg (1/16)|None (Approximate colors)|Jarvis-Judice-Ninke (1/48)|Burkes (1/32)|Sierra-2-4A (1/4)|Sierra2 (1/16)|Sierra3 (1/32)|Stucki (1/42)|Custom (1/32)
 ListBoxControl InputErrorCalcMethod = 0; // Dithering error calculation method|RGB|LAB
+ListBoxControl InputErrorRoundingMethod = 0; // Dithering rounding method|Nearest|Floor|Ceiling
 CheckboxControl InputPalette3d = true; // Palette: 3D colors
 CheckboxControl InputPaletteSkinTweak = false; // {InputPalette3d} Palette: Tweak for skin
 CheckboxControl InputPaletteSandDark = true; // {InputPaletteSkinTweak} Sand (dark)
@@ -79,6 +80,7 @@ CheckboxControl InputPaletteCrimsonNylium = false; // {!InputPaletteSkinTweak} C
 IntSliderControl InputHue = 0; // [-180,180,2] Hue
 IntSliderControl InputSaturation = 100; // [0,400,3] Saturation
 IntSliderControl InputLightness = 0; // [-100,100,5] Lightness
+CheckboxControl InputFixChunk = true; // Apply fix for plugins' 128x128 subchunk limitation
 #endregion
 
 enum ColorMethod
@@ -110,14 +112,23 @@ enum ErrorCalcMethod
     LAB
 }
 
+enum ErrorRoundingMethod
+{
+    Nearest = 0,
+    Floor,
+    Ceiling
+}
+
 // Working surface
-// Paint.NET plugin system subdivides chunks in 128x128 areas, which may interfere with dithering
 Surface wrk = null;
 IColorSpaceComparison comparer = null;
 List<IColorSpace> palette = null;
+bool skipNextRenders = false;
 
 void PreRender(Surface dst, Surface src)
 {
+    skipNextRenders = false;
+
     if (wrk == null)
         wrk = new Surface(src.Size);
 
@@ -396,7 +407,26 @@ protected override void OnDispose(bool disposing)
 // Here is the main render loop function
 void Render(Surface dst, Surface src, Rectangle rect)
 {
+    if (skipNextRenders) return;
+
     DitheringMethod ditheringMethod = (DitheringMethod)InputDitheringMethod;
+
+    // Paint.NET plugin system subdivides chunks in 128x128 areas, which may interfere with dithering
+    // If fix enabled, the first call to Render() will work on all chunks and subsequent calls to Render() will do nothing
+    if (InputFixChunk && ditheringMethod != DitheringMethod.None)
+    {
+        if (rect.X % 128 == 0 &&
+            rect.Y % 128 == 0 &&
+            rect.Width % 128 == 0 &&
+            rect.Height % 128 == 0 && (
+                src.Bounds.Width != rect.Width ||
+                src.Bounds.Height != rect.Height
+            ))
+        {
+            rect = new Rectangle(src.Bounds.Location, src.Size);
+            skipNextRenders = true;
+        }
+    }
 
     for (int y = rect.Top; y < rect.Bottom; y++)
     {
@@ -732,7 +762,7 @@ void ApplyDitherMulDiv(Surface dst, Surface wrk, int x, int y, double error1, do
         lab.L = ClampL(lab.L);
 
         Rgb rgb = lab.To<Rgb>();
-        wrk[x, y] = ColorBgra.FromBgra((byte)rgb.B, (byte)rgb.G, (byte)rgb.R, currentPixel.A);
+        wrk[x, y] = ColorBgra.FromBgra(Round(rgb.B), Round(rgb.G), Round(rgb.R), currentPixel.A);
     }
     else
     {
@@ -742,7 +772,7 @@ void ApplyDitherMulDiv(Surface dst, Surface wrk, int x, int y, double error1, do
         G = currentPixel.G + error2 * weight;
         B = currentPixel.B + error3 * weight;
 
-        wrk[x, y] = ColorBgra.FromBgra((byte)ClampRgb(B), (byte)ClampRgb(G), (byte)ClampRgb(R), currentPixel.A);
+        wrk[x, y] = ColorBgra.FromBgra(Round(ClampRgb(B)), Round(ClampRgb(G)), Round(ClampRgb(R)), currentPixel.A);
     }
 
     dst[x, y] = wrk[x, y];
@@ -760,6 +790,20 @@ double ClampL(double val)
     if (val < 0) return 0;
     if (val > 100) return 100;
     return val;
+}
+
+byte Round(double val)
+{
+    switch ((ErrorRoundingMethod)InputErrorRoundingMethod)
+    {
+        case ErrorRoundingMethod.Nearest:
+        default:
+            return Convert.ToByte(val);
+        case ErrorRoundingMethod.Floor:
+            return (byte)(val);
+        case ErrorRoundingMethod.Ceiling:
+            return (byte)Math.Ceiling(val);
+    }
 }
 
 public interface IRgb : IColorSpace
