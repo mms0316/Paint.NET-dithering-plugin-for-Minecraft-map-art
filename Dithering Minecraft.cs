@@ -40,6 +40,8 @@ https://web.archive.org/web/20070927122512/http://www.efg2.com/Lab/Library/Image
 
 Worth checking:
 https://shihn.ca/posts/2020/dithering/
+https://github.com/redstonehelper/MapConverter/blob/main/MapConverter.java
+https://github.com/rebane2001/mapartcraft/blob/master/src/components/mapart/workers/mapCanvas.jsworker
 
 v8
 */
@@ -119,27 +121,23 @@ enum ErrorRoundingMethod
     Ceiling
 }
 
-// Working surface
-Surface wrk = null;
 IColorSpaceComparison comparer = null;
 List<IColorSpace> palette = null;
 bool skipNextRenders = false;
+Dictionary<IColorSpace, IColorSpace> cache = null;
 
 void PreRender(Surface dst, Surface src)
 {
     skipNextRenders = false;
 
-    if (wrk == null)
-        wrk = new Surface(src.Size);
-
     // Preprocessing: Hue, Saturation Lightness
     if (InputHue != 0 || InputSaturation != 100 || InputLightness != 0)
     {
         UnaryPixelOp pixelOp = new UnaryPixelOps.HueSaturationLightness(InputHue, InputSaturation, InputLightness);
-        pixelOp.Apply(wrk, src, src.Bounds);
+        pixelOp.Apply(dst, src, src.Bounds);
     }
     else
-        wrk.CopySurface(src, src.Bounds);
+        dst.CopySurface(src, src.Bounds);
 
     switch ((ColorMethod)InputColorMethod)
     {
@@ -384,17 +382,15 @@ void PreRender(Surface dst, Surface src)
                 palette.Add(new Rgb { R = 189, G = 48, B = 49 });
         }
     }
+
+    if (cache == null)
+        cache = new Dictionary <IColorSpace, IColorSpace>();
+    else
+        cache.Clear();
 }
 
 protected override void OnDispose(bool disposing)
 {
-    // Release any surfaces or effects you've created.
-    if (wrk != null)
-    {
-        wrk.Dispose();
-        wrk = null;
-    }
-
     comparer = null;
 
     if (palette != null)
@@ -412,7 +408,7 @@ void Render(Surface dst, Surface src, Rectangle rect)
     DitheringMethod ditheringMethod = (DitheringMethod)InputDitheringMethod;
 
     // Paint.NET plugin system subdivides chunks in 128x128 areas, which may interfere with dithering
-    // If fix enabled, the first call to Render() will work on all chunks and subsequent calls to Render() will do nothing
+    // If fix is enabled, the first call to Render() will work on all chunks and subsequent calls to Render() will do nothing
     if (InputFixChunk && ditheringMethod != DitheringMethod.None)
     {
         if (rect.X % 128 == 0 &&
@@ -433,13 +429,12 @@ void Render(Surface dst, Surface src, Rectangle rect)
         if (IsCancelRequested) return;
         for (int x = rect.Left; x < rect.Right; x++)
         {
-            ColorBgra currentPixel = wrk[x, y];
+            ColorBgra currentPixel = dst[x, y];
             IColorSpace currentColor = new Rgb { R = currentPixel.R, G = currentPixel.G, B = currentPixel.B };
-            IColorSpace bestColor = FindNearestColor(currentColor, palette, comparer);
+            IColorSpace bestColor = FindNearestColor(currentColor, palette, comparer, cache);
 
             Rgb bestRgb = bestColor.To<Rgb>();
-            wrk[x, y] = ColorBgra.FromBgra((byte)bestRgb.B, (byte)bestRgb.G, (byte)bestRgb.R, currentPixel.A);
-            dst[x, y] = wrk[x, y];
+            dst[x, y] = ColorBgra.FromBgra((byte)bestRgb.B, (byte)bestRgb.G, (byte)bestRgb.R, currentPixel.A);
 
             if (ditheringMethod != DitheringMethod.None)
             {
@@ -473,17 +468,17 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         div = 16;
 
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 7, div);
+                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 7, div);
 
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 3, div);
+                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 3, div);
 
-                            ApplyDitherMulDiv(dst, wrk, x - 0, y + 1, error1, error2, error3, 5, div);
+                            ApplyDitherMulDiv(dst, x - 0, y + 1, error1, error2, error3, 5, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 1, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dst, x + 1, y + 1, error1, error2, error3, 1, div);
                         }
                         break;
 
@@ -495,29 +490,29 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         div = 32;
 
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 8, div);
+                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 8, div);
 
                         if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, wrk, x + 2, y + 0, error1, error2, error3, 4, div);
+                            ApplyDitherMulDiv(dst, x + 2, y + 0, error1, error2, error3, 4, div);
 
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 4, div);
 
-                            ApplyDitherMulDiv(dst, wrk, x - 0, y + 1, error1, error2, error3, 8, div);
+                            ApplyDitherMulDiv(dst, x - 0, y + 1, error1, error2, error3, 8, div);
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dst, x + 1, y + 1, error1, error2, error3, 4, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 1, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dst, x + 2, y + 1, error1, error2, error3, 1, div);
                         }
                         if (y + 2 < rect.Bottom)
                         {
-                            ApplyDitherMulDiv(dst, wrk, x - 0, y + 2, error1, error2, error3, 2, div);
+                            ApplyDitherMulDiv(dst, x - 0, y + 2, error1, error2, error3, 2, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 2, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dst, x + 1, y + 2, error1, error2, error3, 1, div);
                         }
                         break;
 
@@ -528,24 +523,24 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         div = 32;
 
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 8, div);
+                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 8, div);
                         if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, wrk, x + 2, y + 0, error1, error2, error3, 4, div);
+                            ApplyDitherMulDiv(dst, x + 2, y + 0, error1, error2, error3, 4, div);
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 2 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 2, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dst, x - 2, y + 1, error1, error2, error3, 2, div);
 
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 4, div);
 
-                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 1, error1, error2, error3, 8, div);
+                            ApplyDitherMulDiv(dst, x + 0, y + 1, error1, error2, error3, 8, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dst, x + 1, y + 1, error1, error2, error3, 4, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dst, x + 2, y + 1, error1, error2, error3, 2, div);
                         }
                         break;
 
@@ -556,13 +551,13 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         div = 4;
 
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 2, div);
+                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 2, div);
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 1, div);
 
-                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 1, error1, error2, error3, 1, div);
+                            ApplyDitherMulDiv(dst, x + 0, y + 1, error1, error2, error3, 1, div);
                         }
                         break;
 
@@ -572,24 +567,24 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         //               (1/16)
                         div = 16;
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 4, div);
+                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 4, div);
                         if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, wrk, x + 2, y + 0, error1, error2, error3, 3, div);
+                            ApplyDitherMulDiv(dst, x + 2, y + 0, error1, error2, error3, 3, div);
 
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 2 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 2, y + 1, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dst, x - 2, y + 1, error1, error2, error3, 1, div);
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 2, div);
 
-                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 1, error1, error2, error3, 3, div);
+                            ApplyDitherMulDiv(dst, x + 0, y + 1, error1, error2, error3, 3, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dst, x + 1, y + 1, error1, error2, error3, 2, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 1, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dst, x + 2, y + 1, error1, error2, error3, 1, div);
                         }
                         break;
 
@@ -599,35 +594,35 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         //    2 3 2      (1/32)
                         div = 32;
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 5, div);
+                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 5, div);
                         if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, wrk, x + 2, y + 0, error1, error2, error3, 3, div);
+                            ApplyDitherMulDiv(dst, x + 2, y + 0, error1, error2, error3, 3, div);
 
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 2 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 2, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dst, x - 2, y + 1, error1, error2, error3, 2, div);
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 4, div);
 
-                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 1, error1, error2, error3, 5, div);
+                            ApplyDitherMulDiv(dst, x + 0, y + 1, error1, error2, error3, 5, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dst, x + 1, y + 1, error1, error2, error3, 4, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dst, x + 2, y + 1, error1, error2, error3, 2, div);
                         }
 
                         if (y + 2 < rect.Bottom)
                         {
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 2, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dst, x - 1, y + 2, error1, error2, error3, 2, div);
 
-                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 2, error1, error2, error3, 3, div);
+                            ApplyDitherMulDiv(dst, x + 0, y + 2, error1, error2, error3, 3, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 2, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dst, x + 1, y + 2, error1, error2, error3, 2, div);
 
                         }
                         break;
@@ -639,40 +634,40 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         div = 42;
 
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 8, div);
+                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 8, div);
                         if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, wrk, x + 2, y + 0, error1, error2, error3, 4, div);
+                            ApplyDitherMulDiv(dst, x + 2, y + 0, error1, error2, error3, 4, div);
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 2 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 2, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dst, x - 2, y + 1, error1, error2, error3, 2, div);
 
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 4, div);
 
-                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 1, error1, error2, error3, 8, div);
+                            ApplyDitherMulDiv(dst, x + 0, y + 1, error1, error2, error3, 8, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dst, x + 1, y + 1, error1, error2, error3, 4, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dst, x + 2, y + 1, error1, error2, error3, 2, div);
                         }
                         if (y + 2 < rect.Bottom)
                         {
                             if (x - 2 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 2, y + 2, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dst, x - 2, y + 2, error1, error2, error3, 1, div);
 
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 2, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dst, x - 1, y + 2, error1, error2, error3, 2, div);
 
-                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 2, error1, error2, error3, 4, div);
+                            ApplyDitherMulDiv(dst, x + 0, y + 2, error1, error2, error3, 4, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 2, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dst, x + 1, y + 2, error1, error2, error3, 2, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 2, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dst, x + 2, y + 2, error1, error2, error3, 1, div);
                         }
                         break;
 
@@ -683,40 +678,40 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         div = 48;
 
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 7, div);
+                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 7, div);
                         if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, wrk, x + 2, y + 0, error1, error2, error3, 5, div);
+                            ApplyDitherMulDiv(dst, x + 2, y + 0, error1, error2, error3, 5, div);
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 2 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 2, y + 1, error1, error2, error3, 3, div);
+                                ApplyDitherMulDiv(dst, x - 2, y + 1, error1, error2, error3, 3, div);
 
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 5, div);
+                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 5, div);
 
-                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 1, error1, error2, error3, 7, div);
+                            ApplyDitherMulDiv(dst, x + 0, y + 1, error1, error2, error3, 7, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 1, error1, error2, error3, 5, div);
+                                ApplyDitherMulDiv(dst, x + 1, y + 1, error1, error2, error3, 5, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 1, error1, error2, error3, 3, div);
+                                ApplyDitherMulDiv(dst, x + 2, y + 1, error1, error2, error3, 3, div);
                         }
                         if (y + 2 < rect.Bottom)
                         {
                             if (x - 2 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 2, y + 2, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dst, x - 2, y + 2, error1, error2, error3, 1, div);
 
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 2, error1, error2, error3, 3, div);
+                                ApplyDitherMulDiv(dst, x - 1, y + 2, error1, error2, error3, 3, div);
 
-                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 2, error1, error2, error3, 5, div);
+                            ApplyDitherMulDiv(dst, x + 0, y + 2, error1, error2, error3, 5, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 2, error1, error2, error3, 3, div);
+                                ApplyDitherMulDiv(dst, x + 1, y + 2, error1, error2, error3, 3, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 2, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dst, x + 2, y + 2, error1, error2, error3, 1, div);
                         }
                         break;
                 }
@@ -725,8 +720,13 @@ void Render(Surface dst, Surface src, Rectangle rect)
     }
 }
 
-IColorSpace FindNearestColor(IColorSpace color, IList<IColorSpace> palette, IColorSpaceComparison comparer)
+IColorSpace FindNearestColor(IColorSpace color, IList<IColorSpace> palette, IColorSpaceComparison comparer, IDictionary<IColorSpace, IColorSpace> cache)
 {
+    IColorSpace result;
+
+    if (cache.TryGetValue(color, out result))
+        return result;
+
     var colorRgb = color.To<Rgb>();
     double minDistance = Double.MaxValue;
     int bestIndex = 0;
@@ -743,12 +743,15 @@ IColorSpace FindNearestColor(IColorSpace color, IList<IColorSpace> palette, ICol
         }
     }
 
-    return palette[bestIndex];
+    result = palette[bestIndex];
+    cache.Add(color, result);
+
+    return result;
 }
 
-void ApplyDitherMulDiv(Surface dst, Surface wrk, int x, int y, double error1, double error2, double error3, int mul, int div)
+void ApplyDitherMulDiv(Surface dst, int x, int y, double error1, double error2, double error3, int mul, int div)
 {
-    ColorBgra currentPixel = wrk[x, y];
+    ColorBgra currentPixel = dst[x, y];
     IColorSpace currentColor = new Rgb { R = currentPixel.R, G = currentPixel.G, B = currentPixel.B };
     var weight = (double)mul / div;
 
@@ -762,7 +765,7 @@ void ApplyDitherMulDiv(Surface dst, Surface wrk, int x, int y, double error1, do
         lab.L = ClampL(lab.L);
 
         Rgb rgb = lab.To<Rgb>();
-        wrk[x, y] = ColorBgra.FromBgra(Round(rgb.B), Round(rgb.G), Round(rgb.R), currentPixel.A);
+        dst[x, y] = ColorBgra.FromBgra(Round(rgb.B), Round(rgb.G), Round(rgb.R), currentPixel.A);
     }
     else
     {
@@ -772,10 +775,8 @@ void ApplyDitherMulDiv(Surface dst, Surface wrk, int x, int y, double error1, do
         G = currentPixel.G + error2 * weight;
         B = currentPixel.B + error3 * weight;
 
-        wrk[x, y] = ColorBgra.FromBgra(Round(ClampRgb(B)), Round(ClampRgb(G)), Round(ClampRgb(R)), currentPixel.A);
+        dst[x, y] = ColorBgra.FromBgra(Round(ClampRgb(B)), Round(ClampRgb(G)), Round(ClampRgb(R)), currentPixel.A);
     }
-
-    dst[x, y] = wrk[x, y];
 }
 
 double ClampRgb(double val)
