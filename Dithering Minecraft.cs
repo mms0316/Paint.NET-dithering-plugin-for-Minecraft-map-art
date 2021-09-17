@@ -37,13 +37,19 @@ https://github.com/muak/ColorMinePortable
 Dithering algorithms from
 https://forums.getpaint.net/topic/29428-floyd-steinberg-dithering-including-source/
 https://web.archive.org/web/20070927122512/http://www.efg2.com/Lab/Library/ImageProcessing/DHALF.TXT
+
+Worth checking:
+https://shihn.ca/posts/2020/dithering/
+
+v7
 */
 
 #region UICode
-ListBoxControl InputColorMethod = 2; // Color comparison method|Weighted Euclidean|Euclidean|CIE2000|CIE94|CIE76|CMC I:c
+ListBoxControl InputColorMethod = 4; // Color comparison method|Weighted Euclidean|Euclidean|CIE2000|CIE94|CIE76|CMC I:c
 ListBoxControl InputDitheringMethod = 0; // Dithering method|Floyd-Steinberg (1/16)|None (Approximate colors)|Jarvis-Judice-Ninke (1/48)|Burkes (1/32)|Sierra-2-4A (1/4)|Sierra2 (1/16)|Sierra3 (1/32)|Stucki (1/42)|Custom (1/32)
+ListBoxControl InputErrorCalcMethod = 0; // Dithering error calculation method|RGB|LAB
 CheckboxControl InputPalette3d = true; // Palette: 3D colors
-CheckboxControl InputPaletteSkinTweak = true; // {InputPalette3d} Palette: Tweak for skin
+CheckboxControl InputPaletteSkinTweak = false; // {InputPalette3d} Palette: Tweak for skin
 CheckboxControl InputPaletteSandDark = true; // {InputPaletteSkinTweak} Sand (dark)
 CheckboxControl InputPaletteSandMedium = true; // {InputPaletteSkinTweak} Sand (medium)
 CheckboxControl InputPaletteSandLight = true; // {InputPaletteSkinTweak} Sand (light)
@@ -65,7 +71,7 @@ CheckboxControl InputPaletteWhiteTerracottaDark = true; // {InputPaletteSkinTwea
 CheckboxControl InputPaletteWhiteTerracottaMedium = true; // {InputPaletteSkinTweak} White Terracotta (medium)
 CheckboxControl InputPaletteWhiteTerracottaLight = true; // {InputPaletteSkinTweak} White Terracotta (light)
 CheckboxControl InputPaletteLapis = false; // {!InputPaletteSkinTweak} Lapis Lazuli
-CheckboxControl InputPaletteMushroomStem = true; // {!InputPaletteSkinTweak} Mushroom Stem
+CheckboxControl InputPaletteMushroomStem = false; // {!InputPaletteSkinTweak} Mushroom Stem
 CheckboxControl InputPaletteMushroomStemDark = false; // {InputPaletteSkinTweak} Mushroom Stem (dark)
 CheckboxControl InputPaletteMushroomStemMedium = false; // {InputPaletteSkinTweak} Mushroom Stem (medium)
 CheckboxControl InputPaletteMushroomStemLight = false; // {InputPaletteSkinTweak} Mushroom Stem (light)
@@ -98,20 +104,31 @@ enum DitheringMethod
     Custom_1_32,
 }
 
-// Here is the main render loop function
-void Render(Surface dst, Surface src, Rectangle rect)
+enum ErrorCalcMethod
 {
-    // Call the copy function
-    dst.CopySurface(src, rect.Location, rect);
+    RGB = 0,
+    LAB
+}
+
+// Working surface
+// Paint.NET plugin system subdivides chunks in 128x128 areas, which may interfere with dithering
+Surface wrk = null;
+IColorSpaceComparison comparer = null;
+List<IColorSpace> palette = null;
+
+void PreRender(Surface dst, Surface src)
+{
+    if (wrk == null)
+        wrk = new Surface(src.Size);
 
     // Preprocessing: Hue, Saturation Lightness
     if (InputHue != 0 || InputSaturation != 100 || InputLightness != 0)
     {
         UnaryPixelOp pixelOp = new UnaryPixelOps.HueSaturationLightness(InputHue, InputSaturation, InputLightness);
-        pixelOp.Apply(dst, src, rect);
+        pixelOp.Apply(wrk, src, src.Bounds);
     }
-
-    IColorSpaceComparison comparer;
+    else
+        wrk.CopySurface(src, src.Bounds);
 
     switch ((ColorMethod)InputColorMethod)
     {
@@ -136,671 +153,561 @@ void Render(Surface dst, Surface src, Rectangle rect)
             break;
     }
 
-    var palette = new List<Color>();
+    if (palette == null)
+        palette = new List<IColorSpace>();
+    else
+        palette.Clear();
 
     if (InputPaletteSkinTweak)
     {
         if (InputPaletteSandDark)
-            palette.Add(Color.FromArgb(0xAEA473));
+            palette.Add(new Rgb { R = 174, G = 164, B = 115 });
         if (InputPaletteSandMedium)
-            palette.Add(Color.FromArgb(0xD5C98C));
+            palette.Add(new Rgb { R = 213, G = 201, B = 140 });
         if (InputPaletteSandLight)
-            palette.Add(Color.FromArgb(0xF7E9A3));
+            palette.Add(new Rgb { R = 247, G = 233, B = 163 });
 
         if (InputPaletteWhiteDark)
-            palette.Add(Color.FromArgb(0xB4B4B4));
+            palette.Add(new Rgb { R = 180, G = 180, B = 180 });
         if (InputPaletteWhiteMedium)
-            palette.Add(Color.FromArgb(0xDCDCDC));
+            palette.Add(new Rgb { R = 220, G = 220, B = 220 });
         if (InputPaletteWhiteLight)
-            palette.Add(Color.FromArgb(0xFFFFFF));
+            palette.Add(new Rgb { R = 255, G = 255, B = 255 });
 
         if (InputPalettePinkDark)
-            palette.Add(Color.FromArgb(0xAA5974));
+            palette.Add(new Rgb { R = 170, G = 89, B = 116 });
         if (InputPalettePinkMedium)
-            palette.Add(Color.FromArgb(0xD06D8E));
+            palette.Add(new Rgb { R = 208, G = 109, B = 142 });
         if (InputPalettePinkLight)
-            palette.Add(Color.FromArgb(0xF27FA5));
+            palette.Add(new Rgb { R = 242, G = 127, B = 165 });
 
         if (InputPaletteOrangeDark)
-            palette.Add(Color.FromArgb(0x985924));
+            palette.Add(new Rgb { R = 152, G = 89, B = 36 });
         if (InputPaletteOrangeMedium)
-            palette.Add(Color.FromArgb(0xBA6D2C));
+            palette.Add(new Rgb { R = 186, G = 109, B = 44 });
         if (InputPaletteOrangeLight)
-            palette.Add(Color.FromArgb(0xD87F33));
+            palette.Add(new Rgb { R = 216, G = 127, B = 51 });
 
         if (InputPaletteWhiteTerracottaDark)
-            palette.Add(Color.FromArgb(0x937C71));
+            palette.Add(new Rgb { R = 147, G = 124, B = 113 });
         if (InputPaletteWhiteTerracottaMedium)
-            palette.Add(Color.FromArgb(0xB4988A));
+            palette.Add(new Rgb { R = 180, G = 152, B = 138 });
         if (InputPaletteWhiteTerracottaLight)
-            palette.Add(Color.FromArgb(0xD1B1A1));
+            palette.Add(new Rgb { R = 209, G = 177, B = 161 });
 
         if (InputPaletteMushroomStemDark)
-            palette.Add(Color.FromArgb(0x8C8C8C));
+            palette.Add(new Rgb { R = 140, G = 140, B = 140 });
         if (InputPaletteMushroomStemMedium)
-            palette.Add(Color.FromArgb(0xABABAB));
+            palette.Add(new Rgb { R = 171, G = 171, B = 171 });
         if (InputPaletteMushroomStemLight)
-            palette.Add(Color.FromArgb(0xC7C7C7));
+            palette.Add(new Rgb { R = 199, G = 199, B = 199 });
     }
     else
     {
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(174, 164, 115));
-        palette.Add(Color.FromArgb(213, 201, 140));
+            palette.Add(new Rgb { R = 174, G = 164, B = 115 });
+        palette.Add(new Rgb { R = 213, G = 201, B = 140 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(247, 233, 163));
+            palette.Add(new Rgb { R = 247, G = 233, B = 163 });
 
         if (InputPalettePrismarine)
         {
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(64, 154, 150));
-            palette.Add(Color.FromArgb(79, 188, 183));
+                palette.Add(new Rgb { R = 64, G = 154, B = 150 });
+            palette.Add(new Rgb { R = 79, G = 188, B = 183 });
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(92, 219, 213));
+                palette.Add(new Rgb { R = 92, G = 219, B = 213 });
         }
         if (InputPaletteTNT)
         {
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(180, 0, 0));
-            palette.Add(Color.FromArgb(220, 0, 0));
+                palette.Add(new Rgb { R = 180, G = 0, B = 0 });
+            palette.Add(new Rgb { R = 220, G = 0, B = 0 });
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(255, 0, 0));
+                palette.Add(new Rgb { R = 255, G = 0, B = 0 });
         }
         if (InputPaletteDirt)
         {
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(106, 76, 54));
-            palette.Add(Color.FromArgb(130, 94, 66));
+                palette.Add(new Rgb { R = 106, G = 76, B = 54 });
+            palette.Add(new Rgb { R = 130, G = 94, B = 66 });
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(151, 109, 77));
+                palette.Add(new Rgb { R = 151, G = 109, B = 77 });
         }
         if (InputPaletteIce)
         {
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(112, 112, 180));
-            palette.Add(Color.FromArgb(138, 138, 220));
+                palette.Add(new Rgb { R = 112, G = 112, B = 180 });
+            palette.Add(new Rgb { R = 138, G = 138, B = 220 });
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(160, 160, 255));
+                palette.Add(new Rgb { R = 160, G = 160, B = 255 });
         }
         if (InputPaletteWhiteTerracotta)
         {
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(147, 124, 113));
-            palette.Add(Color.FromArgb(180, 152, 138));
+                palette.Add(new Rgb { R = 147, G = 124, B = 113 });
+            palette.Add(new Rgb { R = 180, G = 152, B = 138 });
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(209, 177, 161));
+                palette.Add(new Rgb { R = 209, G = 177, B = 161 });
         }
         if (InputPaletteLapis)
         {
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(52, 90, 180));
-            palette.Add(Color.FromArgb(63, 110, 220));
+                palette.Add(new Rgb { R = 52, G = 90, B = 180 });
+            palette.Add(new Rgb { R = 63, G = 110, B = 220 });
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(74, 128, 255));
+                palette.Add(new Rgb { R = 74, G = 128, B = 255 });
         }
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0xB4B4B4));
-        palette.Add(Color.FromArgb(0xDCDCDC));
+            palette.Add(new Rgb { R = 180, G = 180, B = 180 });
+        palette.Add(new Rgb { R = 220, G = 220, B = 220 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0xFFFFFF));
+            palette.Add(new Rgb { R = 255, G = 255, B = 255 });
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x985924));
-        palette.Add(Color.FromArgb(0xBA6D2C));
+            palette.Add(new Rgb { R = 152, G = 89, B = 36 });
+        palette.Add(new Rgb { R = 186, G = 109, B = 44 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0xD87F33));
+            palette.Add(new Rgb { R = 216, G = 127, B = 51 });
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x7D3598));
-        palette.Add(Color.FromArgb(0x9941BA));
+            palette.Add(new Rgb { R = 125, G = 53, B = 152 });
+        palette.Add(new Rgb { R = 153, G = 65, B = 186 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0xB24CD8));
+            palette.Add(new Rgb { R = 178, G = 76, B = 216 });
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x486C98));
-        palette.Add(Color.FromArgb(0x5884BA));
+            palette.Add(new Rgb { R = 72, G = 108, B = 152 });
+        palette.Add(new Rgb { R = 88, G = 132, B = 186 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x6699D8));
+            palette.Add(new Rgb { R = 102, G = 153, B = 216 });
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0xA1A124));
-        palette.Add(Color.FromArgb(0xC5C52C));
+            palette.Add(new Rgb { R = 161, G = 161, B = 36 });
+        palette.Add(new Rgb { R = 197, G = 197, B = 44 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0xE5E533));
+            palette.Add(new Rgb { R = 229, G = 229, B = 51 });
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x599011));
-        palette.Add(Color.FromArgb(0x6DB015));
+            palette.Add(new Rgb { R = 89, G = 144, B = 17 });
+        palette.Add(new Rgb { R = 109, G = 176, B = 21 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x7FCC19));
+            palette.Add(new Rgb { R = 127, G = 204, B = 25 });
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0xAA5974));
-        palette.Add(Color.FromArgb(0xD06D8E));
+            palette.Add(new Rgb { R = 170, G = 89, B = 116 });
+        palette.Add(new Rgb { R = 208, G = 109, B = 142 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0xF27FA5));
+            palette.Add(new Rgb { R = 242, G = 127, B = 165 });
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x353535));
-        palette.Add(Color.FromArgb(0x414141));
+            palette.Add(new Rgb { R = 53, G = 53, B = 53 });
+        palette.Add(new Rgb { R = 65, G = 65, B = 65 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x4C4C4C));
+            palette.Add(new Rgb { R = 76, G = 76, B = 76 });
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x6C6C6C));
-        palette.Add(Color.FromArgb(0x848484));
+            palette.Add(new Rgb { R = 108, G = 108, B = 108 });
+        palette.Add(new Rgb { R = 132, G = 132, B = 132 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x999999));
+            palette.Add(new Rgb { R = 153, G = 153, B = 153 });
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x35596C));
-        palette.Add(Color.FromArgb(0x416D84));
+            palette.Add(new Rgb { R = 53, G = 89, B = 108 });
+        palette.Add(new Rgb { R = 65, G = 109, B = 132 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x4C7F99));
+            palette.Add(new Rgb { R = 76, G = 127, B = 153 });
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x592C7D));
-        palette.Add(Color.FromArgb(0x6D3699));
+            palette.Add(new Rgb { R = 89, G = 44, B = 125 });
+        palette.Add(new Rgb { R = 109, G = 54, B = 153 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x7F3FB2));
+            palette.Add(new Rgb { R = 127, G = 63, B = 178 });
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x24357D));
-        palette.Add(Color.FromArgb(0x2C4199));
+            palette.Add(new Rgb { R = 36, G = 53, B = 125 });
+        palette.Add(new Rgb { R = 44, G = 65, B = 153 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x334CB2));
+            palette.Add(new Rgb { R = 51, G = 76, B = 178 });
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x483524));
-        palette.Add(Color.FromArgb(0x58412C));
+            palette.Add(new Rgb { R = 72, G = 53, B = 36 });
+        palette.Add(new Rgb { R = 88, G = 65, B = 44 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x664C33));
+            palette.Add(new Rgb { R = 102, G = 76, B = 51 });
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x485924));
-        palette.Add(Color.FromArgb(0x586D2C));
+            palette.Add(new Rgb { R = 72, G = 89, B = 36 });
+        palette.Add(new Rgb { R = 88, G = 109, B = 44 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x667F33));
+            palette.Add(new Rgb { R = 102, G = 127, B = 51 });
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x6C2424));
-        palette.Add(Color.FromArgb(0x842C2C));
+            palette.Add(new Rgb { R = 108, G = 36, B = 36 });
+        palette.Add(new Rgb { R = 132, G = 44, B = 44 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x993333));
+            palette.Add(new Rgb { R = 153, G = 51, B = 51 });
 
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x111111));
-        palette.Add(Color.FromArgb(0x151515));
+            palette.Add(new Rgb { R = 17, G = 17, B = 17 });
+        palette.Add(new Rgb { R = 21, G = 21, B = 21 });
         if (InputPalette3d)
-            palette.Add(Color.FromArgb(0x191919));
+            palette.Add(new Rgb { R = 25, G = 25, B = 25 });
 
         if (InputPaletteMushroomStem)
         {
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(140, 140, 140));
-            palette.Add(Color.FromArgb(171, 171, 171));
+                palette.Add(new Rgb { R = 140, G = 140, B = 140 });
+            palette.Add(new Rgb { R = 171, G = 171, B = 171 });
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(199, 199, 199));
+                palette.Add(new Rgb { R = 199, G = 199, B = 199 });
         }
 
         if (InputPaletteCrimsonNylium)
         {
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(133, 33, 34));
-            palette.Add(Color.FromArgb(163, 41, 42));
+                palette.Add(new Rgb { R = 133, G = 33, B = 34 });
+            palette.Add(new Rgb { R = 163, G = 41, B = 42 });
             if (InputPalette3d)
-                palette.Add(Color.FromArgb(189, 48, 49));
+                palette.Add(new Rgb { R = 189, G = 48, B = 49 });
         }
     }
+}
 
-    Color BestColor;
-    ColorBgra BestColora;
-    
-    // Now in the main render loop, the dst canvas has a copy of the src canvas
+protected override void OnDispose(bool disposing)
+{
+    // Release any surfaces or effects you've created.
+    if (wrk != null)
+    {
+        wrk.Dispose();
+        wrk = null;
+    }
+
+    comparer = null;
+
+    if (palette != null)
+        palette.Clear();
+    palette = null;
+
+    base.OnDispose(disposing);
+}
+
+// Here is the main render loop function
+void Render(Surface dst, Surface src, Rectangle rect)
+{
+    DitheringMethod ditheringMethod = (DitheringMethod)InputDitheringMethod;
+
     for (int y = rect.Top; y < rect.Bottom; y++)
     {
         if (IsCancelRequested) return;
         for (int x = rect.Left; x < rect.Right; x++)
         {
-            ColorBgra CurrentPixel = dst[x,y];
-            byte A = CurrentPixel.A;
-            Color currentPixel = CurrentPixel.ToColor();
+            ColorBgra currentPixel = wrk[x, y];
+            IColorSpace currentColor = new Rgb { R = currentPixel.R, G = currentPixel.G, B = currentPixel.B };
+            IColorSpace bestColor = FindNearestColor(currentColor, palette, comparer);
 
-            switch ((DitheringMethod)InputDitheringMethod)
+            Rgb bestRgb = bestColor.To<Rgb>();
+            wrk[x, y] = ColorBgra.FromBgra((byte)bestRgb.B, (byte)bestRgb.G, (byte)bestRgb.R, currentPixel.A);
+            dst[x, y] = wrk[x, y];
+
+            if (ditheringMethod != DitheringMethod.None)
             {
-                case DitheringMethod.FloydSteinberg:
-                default:
+                ErrorCalcMethod errorCalcMethod = (ErrorCalcMethod)InputErrorCalcMethod;
+                double error1, error2, error3; //RGB or L*a*b*
+                int div;
+
+                if (errorCalcMethod == ErrorCalcMethod.LAB)
                 {
-                    BestColor = FindNearestColor(currentPixel, palette, comparer);
-                    BestColora = ColorBgra.FromColor(BestColor);
-                    BestColora.A = A;
+                    Lab currentLab = currentColor.To<Lab>();
+                    Lab bestLab = bestColor.To<Lab>();
 
-                    int errorR = currentPixel.R - BestColor.R;
-                    int errorG = currentPixel.G - BestColor.G;
-                    int errorB = currentPixel.B - BestColor.B;
+                    error1 = currentLab.L - bestLab.L;
+                    error2 = currentLab.A - bestLab.A;
+                    error3 = currentLab.B - bestLab.B;
+                }
+                else
+                {
+                    error1 = currentPixel.R - bestRgb.R;
+                    error2 = currentPixel.G - bestRgb.G;
+                    error3 = currentPixel.B - bestRgb.B;
+                }
 
-                    //  - * 7    where *=pixel being processed, -=previously processed pixel
-                    //  3 5 1    and pixel difference is distributed to neighbor pixels
-                    //           Note: 7+3+5+1=16 so we divide by 16 (>>4) before adding.
+                switch (ditheringMethod)
+                {
+                    case DitheringMethod.FloydSteinberg:
+                    default:
+                        //  - * 7    where *=pixel being processed, -=previously processed pixel
+                        //  3 5 1    and pixel difference is distributed to neighbor pixels
+                        //           Note: 7+3+5+1=16 so we divide by 16 before adding.
+                        div = 16;
 
-                    if (x + 1 < rect.Right)
-                    {
-                        dst[x + 1, y + 0] = ColorBgra.FromBgra(
-                            PlusTruncate(dst[x + 1, y + 0].B, (errorB * 7) >> 4),
-                            PlusTruncate(dst[x + 1, y + 0].G, (errorG * 7) >> 4),
-                            PlusTruncate(dst[x + 1, y + 0].R, (errorR * 7) >> 4),
-                            dst[x+1,y].A
-                        );
-                    }
-                    if (y + 1 < rect.Bottom)
-                    {
-                        if (x - 1 >= rect.Left)
+                        if (x + 1 < rect.Right)
+                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 7, div);
+
+                        if (y + 1 < rect.Bottom)
                         {
-                            dst[x - 1, y + 1] = ColorBgra.FromBgra(
-                                PlusTruncate(dst[x - 1, y + 1].B, (errorB * 3) >> 4),
-                                PlusTruncate(dst[x - 1, y + 1].G, (errorG * 3) >> 4),
-                                PlusTruncate(dst[x - 1, y + 1].R, (errorR * 3) >> 4),
-                                dst[x-1,y+1].A
-                            );
+                            if (x - 1 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 3, div);
+
+                            ApplyDitherMulDiv(dst, wrk, x - 0, y + 1, error1, error2, error3, 5, div);
+
+                            if (x + 1 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 1, error1, error2, error3, 1, div);
                         }
-                        dst[x - 0, y + 1] = ColorBgra.FromBgra(
-                            PlusTruncate(dst[x - 0, y + 1].B, (errorB * 5) >> 4),
-                            PlusTruncate(dst[x - 0, y + 1].G, (errorG * 5) >> 4),
-                            PlusTruncate(dst[x - 0, y + 1].R, (errorR * 5) >> 4),
-                            dst[x-0,y+1].A
-                        );
+                        break;
+
+                    case DitheringMethod.Custom_1_32:
+                        // Custom 1/32 Dithering
+                        //  - - # 8 4    where *=pixel being processed, -=previously processed pixel
+                        //  0 4 8 4 1    and pixel difference is distributed to neighbor pixels
+                        //  0 0 2 1 0 
+                        div = 32;
+
                         if (x + 1 < rect.Right)
+                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 8, div);
+
+                        if (x + 2 < rect.Right)
+                            ApplyDitherMulDiv(dst, wrk, x + 2, y + 0, error1, error2, error3, 4, div);
+
+                        if (y + 1 < rect.Bottom)
                         {
-                            dst[x + 1, y + 1] = ColorBgra.FromBgra(
-                                PlusTruncate(dst[x + 1, y + 1].B, (errorB * 1) >> 4),
-                                PlusTruncate(dst[x + 1, y + 1].G, (errorG * 1) >> 4),
-                                PlusTruncate(dst[x + 1, y + 1].R, (errorR * 1) >> 4),
-                                dst[x+1,y+1].A
-                            );
+                            if (x - 1 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 4, div);
+
+                            ApplyDitherMulDiv(dst, wrk, x - 0, y + 1, error1, error2, error3, 8, div);
+                            if (x + 1 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 1, error1, error2, error3, 4, div);
+
+                            if (x + 2 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 1, error1, error2, error3, 1, div);
                         }
-                    }
-                    break;
-                }
-
-                case DitheringMethod.Custom_1_32:
-                {
-                    BestColor = FindNearestColor(currentPixel, palette, comparer);
-                    BestColora = ColorBgra.FromColor(BestColor);
-                    BestColora.A = A;
-
-                    // Custom 1/32 Dithering
-                    
-                    int errorR = currentPixel.R - BestColor.R;
-                    int errorG = currentPixel.G - BestColor.G;
-                    int errorB = currentPixel.B - BestColor.B;
-
-                    //  - - # 8 4    where *=pixel being processed, -=previously processed pixel
-                    //  0 4 8 4 1    and pixel difference is distributed to neighbor pixels
-                    //  0 0 2 1 0 
-
-                    if (x + 1 < rect.Right)
-                    {
-                        dst[x + 1, y + 0] = ColorBgra.FromBgra(
-                            PlusTruncate(dst[x + 1, y + 0].B, errorB >> 2),
-                            PlusTruncate(dst[x + 1, y + 0].G, errorG >> 2),
-                            PlusTruncate(dst[x + 1, y + 0].R, errorR >> 2),
-                            dst[x+1,y].A
-                        );
-                    }
-                    if (x + 2 < rect.Right)
-                    {
-                        dst[x + 2, y + 0] = ColorBgra.FromBgra(
-                            PlusTruncate(dst[x + 2, y + 0].B, errorB >> 3),
-                            PlusTruncate(dst[x + 2, y + 0].G, errorG >> 3),
-                            PlusTruncate(dst[x + 2, y + 0].R, errorR >> 3),
-                            dst[x+2,y].A
-                        );
-                    }
-                    if (y + 1 < rect.Bottom)
-                    {
-                        if (x - 1 >= rect.Left)
+                        if (y + 2 < rect.Bottom)
                         {
-                            dst[x - 1, y + 1] = ColorBgra.FromBgra(
-                                PlusTruncate(dst[x - 1, y + 1].B, errorB >> 3),
-                                PlusTruncate(dst[x - 1, y + 1].G, errorG >> 3),
-                                PlusTruncate(dst[x - 1, y + 1].R, errorR >> 3),
-                                dst[x-1,y+1].A
-                            );
+                            ApplyDitherMulDiv(dst, wrk, x - 0, y + 2, error1, error2, error3, 2, div);
+
+                            if (x + 1 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 2, error1, error2, error3, 1, div);
                         }
-                        dst[x, y + 1] = ColorBgra.FromBgra(
-                            PlusTruncate(dst[x, y + 1].B, errorB >> 2),
-                            PlusTruncate(dst[x, y + 1].G, errorG >> 2),
-                            PlusTruncate(dst[x, y + 1].R, errorR >> 2),
-                            dst[x,y+1].A
-                        );
+                        break;
+
+                    case DitheringMethod.Burkes:
+                        //  - - # 8 4    where *=pixel being processed, -=previously processed pixel
+                        //  2 4 8 4 2    and pixel difference is distributed to neighbor pixels
+                        //               (1/32)
+                        div = 32;
+
                         if (x + 1 < rect.Right)
+                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 8, div);
+                        if (x + 2 < rect.Right)
+                            ApplyDitherMulDiv(dst, wrk, x + 2, y + 0, error1, error2, error3, 4, div);
+                        if (y + 1 < rect.Bottom)
                         {
-                            dst[x + 1, y + 1] = ColorBgra.FromBgra(
-                                PlusTruncate(dst[x + 1, y + 1].B, errorB >> 3),
-                                PlusTruncate(dst[x + 1, y + 1].G, errorG >> 3),
-                                PlusTruncate(dst[x + 1, y + 1].R, errorR >> 3),
-                                dst[x+1,y+1].A
-                            );
+                            if (x - 2 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 2, y + 1, error1, error2, error3, 2, div);
+
+                            if (x - 1 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 4, div);
+
+                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 1, error1, error2, error3, 8, div);
+
+                            if (x + 1 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 1, error1, error2, error3, 4, div);
+
+                            if (x + 2 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 1, error1, error2, error3, 2, div);
                         }
-                        if (x + 2 < rect.Right)
+                        break;
+
+                    case DitheringMethod.Sierra2_4A:
+                        //  - - # 2      where *=pixel being processed, -=previously processed pixel
+                        //  - 1 1        and pixel difference is distributed to neighbor pixels
+                        //               (1/4)
+                        div = 4;
+
+                        if (x + 1 < rect.Right)
+                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 2, div);
+                        if (y + 1 < rect.Bottom)
                         {
-                            dst[x + 2, y + 1] = ColorBgra.FromBgra(
-                                PlusTruncate(dst[x + 2, y + 1].B, errorB >> 5),
-                                PlusTruncate(dst[x + 2, y + 1].G, errorG >> 5),
-                                PlusTruncate(dst[x + 2, y + 1].R, errorR >> 5),
-                                dst[x+2,y+1].A
-                            );
+                            if (x - 1 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 1, div);
+
+                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 1, error1, error2, error3, 1, div);
                         }
-                    }
-                    if (y + 2 < rect.Bottom)
-                    {
-                        dst[x, y + 2] = ColorBgra.FromBgra(
-                            PlusTruncate(dst[x, y + 2].B, errorB >> 4),
-                            PlusTruncate(dst[x, y + 2].G, errorG >> 4),
-                            PlusTruncate(dst[x, y + 2].R, errorR >> 4),
-                            dst[x,y+2].A
-                        );
+                        break;
+
+                    case DitheringMethod.Sierra2:
+                        //  - - # 4 3    where *=pixel being processed, -=previously processed pixel
+                        //  1 2 3 2 1    and pixel difference is distributed to neighbor pixels
+                        //               (1/16)
+                        div = 16;
                         if (x + 1 < rect.Right)
+                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 4, div);
+                        if (x + 2 < rect.Right)
+                            ApplyDitherMulDiv(dst, wrk, x + 2, y + 0, error1, error2, error3, 3, div);
+
+                        if (y + 1 < rect.Bottom)
                         {
-                            dst[x + 1, y + 2] = ColorBgra.FromBgra(
-                                PlusTruncate(dst[x + 1, y + 2].B, errorB >> 5),
-                                PlusTruncate(dst[x + 1, y + 2].G, errorG >> 5),
-                                PlusTruncate(dst[x + 1, y + 2].R, errorR >> 5),
-                                dst[x+1,y+2].A
-                            );
+                            if (x - 2 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 2, y + 1, error1, error2, error3, 1, div);
+                            if (x - 1 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 2, div);
+
+                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 1, error1, error2, error3, 3, div);
+
+                            if (x + 1 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 1, error1, error2, error3, 2, div);
+
+                            if (x + 2 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 1, error1, error2, error3, 1, div);
                         }
-                    }
-                    break;
-                }
+                        break;
 
-                case DitheringMethod.None:
-                {
-                    BestColor = FindNearestColor(currentPixel, palette, comparer);
-                    BestColora = ColorBgra.FromColor(BestColor);
-                    BestColora.A = A;
-                    break;
-                }
-
-                case DitheringMethod.Burkes:
-                {
-                    BestColor = FindNearestColor(currentPixel, palette, comparer);
-                    BestColora = ColorBgra.FromColor(BestColor);
-                    BestColora.A = A;
-
-                    int errorR = currentPixel.R - BestColor.R;
-                    int errorG = currentPixel.G - BestColor.G;
-                    int errorB = currentPixel.B - BestColor.B;
-
-                    //  - - # 8 4    where *=pixel being processed, -=previously processed pixel
-                    //  2 4 8 4 2    and pixel difference is distributed to neighbor pixels
-                    //               (1/32)
-                    if (x + 1 < rect.Right)
-                        ApplyDitherMulShift(dst, x + 1, y + 0, errorR, errorG, errorB, 1, 2);
-                    if (x + 2 < rect.Right)
-                        ApplyDitherMulShift(dst, x + 2, y + 0, errorR, errorG, errorB, 1, 3);
-                    if (y + 1 < rect.Bottom)
-                    {
-                        if (x - 2 >= rect.Left)
-                            ApplyDitherMulShift(dst, x - 2, y + 1, errorR, errorG, errorB, 1, 4);
-
-                        if (x - 1 >= rect.Left)
-                            ApplyDitherMulShift(dst, x - 1, y + 1, errorR, errorG, errorB, 1, 3);
-
-                        ApplyDitherMulShift(dst, x + 0, y + 1, errorR, errorG, errorB, 1, 2);
-                          
+                    case DitheringMethod.Sierra3:
+                        //  - - # 5 3    where *=pixel being processed, -=previously processed pixel
+                        //  2 4 5 4 2    and pixel difference is distributed to neighbor pixels
+                        //    2 3 2      (1/32)
+                        div = 32;
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulShift(dst, x + 1, y + 1, errorR, errorG, errorB, 1, 3);
-
+                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 5, div);
                         if (x + 2 < rect.Right)
-                            ApplyDitherMulShift(dst, x + 2, y + 1, errorR, errorG, errorB, 1, 4);
-                    }
-                    break;
-                }
+                            ApplyDitherMulDiv(dst, wrk, x + 2, y + 0, error1, error2, error3, 3, div);
 
-                case DitheringMethod.Sierra2_4A:
-                {
-                    BestColor = FindNearestColor(currentPixel, palette, comparer);
-                    BestColora = ColorBgra.FromColor(BestColor);
-                    BestColora.A = A;
+                        if (y + 1 < rect.Bottom)
+                        {
+                            if (x - 2 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 2, y + 1, error1, error2, error3, 2, div);
+                            if (x - 1 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 4, div);
 
-                    int errorR = currentPixel.R - BestColor.R;
-                    int errorG = currentPixel.G - BestColor.G;
-                    int errorB = currentPixel.B - BestColor.B;
+                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 1, error1, error2, error3, 5, div);
 
-                    //  - - # 2      where *=pixel being processed, -=previously processed pixel
-                    //  - 1 1        and pixel difference is distributed to neighbor pixels
-                    //               (1/4)
+                            if (x + 1 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 1, error1, error2, error3, 4, div);
 
-                    if (x + 1 < rect.Right)
-                        ApplyDitherMulShift(dst, x + 1, y + 0, errorR, errorG, errorB, 1, 1);
-                    if (y + 1 < rect.Bottom)
-                    {
-                        if (x - 1 >= rect.Left)
-                            ApplyDitherMulShift(dst, x - 1, y + 1, errorR, errorG, errorB, 1, 2);
+                            if (x + 2 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 1, error1, error2, error3, 2, div);
+                        }
 
-                        ApplyDitherMulShift(dst, x + 0, y + 1, errorR, errorG, errorB, 1, 1);
-                    }
-                    break;
-                }
+                        if (y + 2 < rect.Bottom)
+                        {
+                            if (x - 1 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 2, error1, error2, error3, 2, div);
 
-                case DitheringMethod.Sierra2:
-                {
-                    BestColor = FindNearestColor(currentPixel, palette, comparer);
-                    BestColora = ColorBgra.FromColor(BestColor);
-                    BestColora.A = A;
+                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 2, error1, error2, error3, 3, div);
 
-                    int errorR = currentPixel.R - BestColor.R;
-                    int errorG = currentPixel.G - BestColor.G;
-                    int errorB = currentPixel.B - BestColor.B;
+                            if (x + 1 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 2, error1, error2, error3, 2, div);
 
-                    //  - - # 4 3    where *=pixel being processed, -=previously processed pixel
-                    //  1 2 3 2 1    and pixel difference is distributed to neighbor pixels
-                    //               (1/16)
+                        }
+                        break;
 
-                    if (x + 1 < rect.Right)
-                        ApplyDitherMulShift(dst, x + 1, y + 0, errorR, errorG, errorB, 1, 2);
-                    if (x + 2 < rect.Right)
-                        ApplyDitherMulShift(dst, x + 2, y + 0, errorR, errorG, errorB, 3, 4);
-
-                    if (y + 1 < rect.Bottom)
-                    {
-                        if (x - 2 >= rect.Left)
-                            ApplyDitherMulShift(dst, x - 2, y + 1, errorR, errorG, errorB, 1, 4);
-                        if (x - 1 >= rect.Left)
-                            ApplyDitherMulShift(dst, x - 1, y + 1, errorR, errorG, errorB, 1, 3);
-
-                        ApplyDitherMulShift(dst, x + 0, y + 1, errorR, errorG, errorB, 3, 4);
+                    case DitheringMethod.Stucki:
+                        //  - - # 8 4    where *=pixel being processed, -=previously processed pixel
+                        //  2 4 8 4 2    and pixel difference is distributed to neighbor pixels
+                        //  1 2 4 2 1    (1/42)
+                        div = 42;
 
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulShift(dst, x + 1, y + 1, errorR, errorG, errorB, 1, 3);
-
+                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 8, div);
                         if (x + 2 < rect.Right)
-                            ApplyDitherMulShift(dst, x + 2, y + 1, errorR, errorG, errorB, 1, 4);
-                    }
-                    break;
-                }
+                            ApplyDitherMulDiv(dst, wrk, x + 2, y + 0, error1, error2, error3, 4, div);
+                        if (y + 1 < rect.Bottom)
+                        {
+                            if (x - 2 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 2, y + 1, error1, error2, error3, 2, div);
 
-                case DitheringMethod.Sierra3:
-                {
-                    BestColor = FindNearestColor(currentPixel, palette, comparer);
-                    BestColora = ColorBgra.FromColor(BestColor);
-                    BestColora.A = A;
+                            if (x - 1 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 4, div);
 
-                    int errorR = currentPixel.R - BestColor.R;
-                    int errorG = currentPixel.G - BestColor.G;
-                    int errorB = currentPixel.B - BestColor.B;
+                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 1, error1, error2, error3, 8, div);
 
-                    //  - - # 5 3    where *=pixel being processed, -=previously processed pixel
-                    //  2 4 5 4 2    and pixel difference is distributed to neighbor pixels
-                    //    2 3 2      (1/32)
+                            if (x + 1 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 1, error1, error2, error3, 4, div);
 
-                    if (x + 1 < rect.Right)
-                        ApplyDitherMulShift(dst, x + 1, y + 0, errorR, errorG, errorB, 5, 5);
-                    if (x + 2 < rect.Right)
-                        ApplyDitherMulShift(dst, x + 2, y + 0, errorR, errorG, errorB, 3, 5);
+                            if (x + 2 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 1, error1, error2, error3, 2, div);
+                        }
+                        if (y + 2 < rect.Bottom)
+                        {
+                            if (x - 2 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 2, y + 2, error1, error2, error3, 1, div);
 
-                    if (y + 1 < rect.Bottom)
-                    {
-                        if (x - 2 >= rect.Left)
-                            ApplyDitherMulShift(dst, x - 2, y + 1, errorR, errorG, errorB, 1, 4);
-                        if (x - 1 >= rect.Left)
-                            ApplyDitherMulShift(dst, x - 1, y + 1, errorR, errorG, errorB, 1, 3);
+                            if (x - 1 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 2, error1, error2, error3, 2, div);
 
-                        ApplyDitherMulShift(dst, x + 0, y + 1, errorR, errorG, errorB, 5, 5);
+                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 2, error1, error2, error3, 4, div);
+
+                            if (x + 1 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 2, error1, error2, error3, 2, div);
+
+                            if (x + 2 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 2, error1, error2, error3, 1, div);
+                        }
+                        break;
+
+                    case DitheringMethod.JarvisJudiceNinke:
+                        //  - - # 7 5    where *=pixel being processed, -=previously processed pixel
+                        //  3 5 7 5 3    and pixel difference is distributed to neighbor pixels
+                        //  1 3 5 3 1    (1/48)
+                        div = 48;
 
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulShift(dst, x + 1, y + 1, errorR, errorG, errorB, 1, 3);
-
+                            ApplyDitherMulDiv(dst, wrk, x + 1, y + 0, error1, error2, error3, 7, div);
                         if (x + 2 < rect.Right)
-                            ApplyDitherMulShift(dst, x + 2, y + 1, errorR, errorG, errorB, 1, 4);
-                    }
+                            ApplyDitherMulDiv(dst, wrk, x + 2, y + 0, error1, error2, error3, 5, div);
+                        if (y + 1 < rect.Bottom)
+                        {
+                            if (x - 2 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 2, y + 1, error1, error2, error3, 3, div);
 
-                    if (y + 2 < rect.Bottom)
-                    {
-                        if (x - 1 >= rect.Left)
-                            ApplyDitherMulShift(dst, x - 1, y + 2, errorR, errorG, errorB, 1, 4);
+                            if (x - 1 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 1, error1, error2, error3, 5, div);
 
-                        ApplyDitherMulShift(dst, x + 0, y + 2, errorR, errorG, errorB, 3, 5);
+                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 1, error1, error2, error3, 7, div);
 
-                        if (x + 1 < rect.Right)
-                            ApplyDitherMulShift(dst, x + 1, y + 2, errorR, errorG, errorB, 1, 4);
+                            if (x + 1 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 1, error1, error2, error3, 5, div);
 
-                    }
-                    break;
-                }
+                            if (x + 2 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 1, error1, error2, error3, 3, div);
+                        }
+                        if (y + 2 < rect.Bottom)
+                        {
+                            if (x - 2 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 2, y + 2, error1, error2, error3, 1, div);
 
-                case DitheringMethod.Stucki:
-                {
-                    BestColor = FindNearestColor(currentPixel, palette, comparer);
-                    BestColora = ColorBgra.FromColor(BestColor);
-                    BestColora.A = A;
+                            if (x - 1 >= rect.Left)
+                                ApplyDitherMulDiv(dst, wrk, x - 1, y + 2, error1, error2, error3, 3, div);
 
-                    int errorR = currentPixel.R - BestColor.R;
-                    int errorG = currentPixel.G - BestColor.G;
-                    int errorB = currentPixel.B - BestColor.B;
+                            ApplyDitherMulDiv(dst, wrk, x + 0, y + 2, error1, error2, error3, 5, div);
 
-                    //  - - # 8 4    where *=pixel being processed, -=previously processed pixel
-                    //  2 4 8 4 2    and pixel difference is distributed to neighbor pixels
-                    //  1 2 4 2 1    (1/42)
-                    int div = 42;
+                            if (x + 1 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 1, y + 2, error1, error2, error3, 3, div);
 
-                    if (x + 1 < rect.Right)
-                        ApplyDitherMulDiv(dst, x + 1, y + 0, errorR, errorG, errorB, 8, div);
-                    if (x + 2 < rect.Right)
-                        ApplyDitherMulDiv(dst, x + 2, y + 0, errorR, errorG, errorB, 4, div);
-                    if (y + 1 < rect.Bottom)
-                    {
-                        if (x - 2 >= rect.Left)
-                            ApplyDitherMulDiv(dst, x - 2, y + 1, errorR, errorG, errorB, 2, div);
-
-                        if (x - 1 >= rect.Left)
-                            ApplyDitherMulDiv(dst, x - 1, y + 1, errorR, errorG, errorB, 4, div);
-
-                        ApplyDitherMulDiv(dst, x + 0, y + 1, errorR, errorG, errorB, 8, div);
-                          
-                        if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 1, y + 1, errorR, errorG, errorB, 4, div);
-
-                        if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 2, y + 1, errorR, errorG, errorB, 2, div);
-                    }
-                    if (y + 2 < rect.Bottom)
-                    {
-                        if (x - 2 >= rect.Left)
-                            ApplyDitherMulDiv(dst, x - 2, y + 2, errorR, errorG, errorB, 1, div);
-
-                        if (x - 1 >= rect.Left)
-                            ApplyDitherMulDiv(dst, x - 1, y + 2, errorR, errorG, errorB, 2, div);
-
-                        ApplyDitherMulDiv(dst, x + 0, y + 2, errorR, errorG, errorB, 4, div);
-                          
-                        if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 1, y + 2, errorR, errorG, errorB, 2, div);
-
-                        if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 2, y + 2, errorR, errorG, errorB, 1, div);
-                    }
-                    break;
-                }
-
-                case DitheringMethod.JarvisJudiceNinke:
-                {
-                    BestColor = FindNearestColor(currentPixel, palette, comparer);
-                    BestColora = ColorBgra.FromColor(BestColor);
-                    BestColora.A = A;
-
-                    int errorR = currentPixel.R - BestColor.R;
-                    int errorG = currentPixel.G - BestColor.G;
-                    int errorB = currentPixel.B - BestColor.B;
-
-                    //  - - # 7 5    where *=pixel being processed, -=previously processed pixel
-                    //  3 5 7 5 3    and pixel difference is distributed to neighbor pixels
-                    //  1 3 5 3 1    (1/48)
-                    int div = 48;
-
-                    if (x + 1 < rect.Right)
-                        ApplyDitherMulDiv(dst, x + 1, y + 0, errorR, errorG, errorB, 7, div);
-                    if (x + 2 < rect.Right)
-                        ApplyDitherMulDiv(dst, x + 2, y + 0, errorR, errorG, errorB, 5, div);
-                    if (y + 1 < rect.Bottom)
-                    {
-                        if (x - 2 >= rect.Left)
-                            ApplyDitherMulDiv(dst, x - 2, y + 1, errorR, errorG, errorB, 3, div);
-
-                        if (x - 1 >= rect.Left)
-                            ApplyDitherMulDiv(dst, x - 1, y + 1, errorR, errorG, errorB, 5, div);
-
-                        ApplyDitherMulDiv(dst, x + 0, y + 1, errorR, errorG, errorB, 7, div);
-                          
-                        if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 1, y + 1, errorR, errorG, errorB, 5, div);
-
-                        if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 2, y + 1, errorR, errorG, errorB, 3, div);
-                    }
-                    if (y + 2 < rect.Bottom)
-                    {
-                        if (x - 2 >= rect.Left)
-                            ApplyDitherMulDiv(dst, x - 2, y + 2, errorR, errorG, errorB, 1, div);
-
-                        if (x - 1 >= rect.Left)
-                            ApplyDitherMulDiv(dst, x - 1, y + 2, errorR, errorG, errorB, 3, div);
-
-                        ApplyDitherMulDiv(dst, x + 0, y + 2, errorR, errorG, errorB, 5, div);
-                          
-                        if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 1, y + 2, errorR, errorG, errorB, 3, div);
-
-                        if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 2, y + 2, errorR, errorG, errorB, 1, div);
-                    }
-                    break;
+                            if (x + 2 < rect.Right)
+                                ApplyDitherMulDiv(dst, wrk, x + 2, y + 2, error1, error2, error3, 1, div);
+                        }
+                        break;
                 }
             }
-            dst[x,y] = BestColora;
         }
     }
 }
 
-Color FindNearestColor(Color color, IList<Color> palette, IColorSpaceComparison comparer)
+IColorSpace FindNearestColor(IColorSpace color, IList<IColorSpace> palette, IColorSpaceComparison comparer)
 {
-    var colorRgb = new Rgb { R = color.R, G = color.G, B = color.B};
+    var colorRgb = color.To<Rgb>();
     double minDistance = Double.MaxValue;
     int bestIndex = 0;
-    int secondBestIndex = 0;
-    double secondBestDistance = minDistance;
 
     for (int i = 0; i < palette.Count; i++)
     {
-        var colorOther = new Rgb { R = palette[i].R, G = palette[i].G, B = palette[i].B };
-        double distance = comparer.Compare(colorRgb, colorOther);
+        double distance = comparer.Compare(colorRgb, palette[i]);
 
         if (distance < minDistance)
         {
-            secondBestDistance = minDistance;
             minDistance = distance;
-            secondBestIndex = bestIndex;
             bestIndex = i;
             if (minDistance <= Double.Epsilon) break;
         }
@@ -809,40 +716,50 @@ Color FindNearestColor(Color color, IList<Color> palette, IColorSpaceComparison 
     return palette[bestIndex];
 }
 
-void ApplyDitherMulShift (Surface dst, int x, int y, int errorR, int errorG, int errorB, int mul, int shift)
+void ApplyDitherMulDiv(Surface dst, Surface wrk, int x, int y, double error1, double error2, double error3, int mul, int div)
 {
-    dst[x, y] = ColorBgra.FromBgra(
-        PlusTruncate(dst[x, y].B, (errorB * mul) >> shift),
-        PlusTruncate(dst[x, y].G, (errorG * mul) >> shift),
-        PlusTruncate(dst[x, y].R, (errorR * mul) >> shift),
-        dst[x, y].A
-    );
+    ColorBgra currentPixel = wrk[x, y];
+    IColorSpace currentColor = new Rgb { R = currentPixel.R, G = currentPixel.G, B = currentPixel.B };
+    var weight = (double)mul / div;
+
+    if ((ErrorCalcMethod)InputErrorCalcMethod == ErrorCalcMethod.LAB)
+    {
+        Lab lab = currentColor.To<Lab>();
+        lab.L += error1 * weight;
+        lab.A += error2 * weight;
+        lab.B += error3 * weight;
+
+        lab.L = ClampL(lab.L);
+
+        Rgb rgb = lab.To<Rgb>();
+        wrk[x, y] = ColorBgra.FromBgra((byte)rgb.B, (byte)rgb.G, (byte)rgb.R, currentPixel.A);
+    }
+    else
+    {
+        double R, G, B;
+
+        R = currentPixel.R + error1 * weight;
+        G = currentPixel.G + error2 * weight;
+        B = currentPixel.B + error3 * weight;
+
+        wrk[x, y] = ColorBgra.FromBgra((byte)ClampRgb(B), (byte)ClampRgb(G), (byte)ClampRgb(R), currentPixel.A);
+    }
+
+    dst[x, y] = wrk[x, y];
 }
 
-void ApplyDitherMulDiv (Surface dst, int x, int y, int errorR, int errorG, int errorB, int mul, int div)
+double ClampRgb(double val)
 {
-    dst[x, y] = ColorBgra.FromBgra(
-        PlusDivTruncate(dst[x, y].B, errorB * mul, div),
-        PlusDivTruncate(dst[x, y].G, errorG * mul, div),
-        PlusDivTruncate(dst[x, y].R, errorR * mul, div),
-        dst[x, y].A
-    );
+    if (val < 0) return 0;
+    if (val > 255) return 255;
+    return val;
 }
 
-byte PlusTruncate(byte a, int b)
+double ClampL(double val)
 {
-    int c = a + b;
-    if (c < 0) return 0;
-    if (c > 255) return 255;
-    return (byte)c;
-}
-
-byte PlusDivTruncate(byte a, int b, int c)
-{
-    double r = (((double)a) * c + b) / c;
-    if (r < 0) return 0;
-    if (r > 255) return 255;
-    return (byte)Math.Round(r);
+    if (val < 0) return 0;
+    if (val > 100) return 100;
+    return val;
 }
 
 public interface IRgb : IColorSpace
@@ -1483,9 +1400,6 @@ public class CmcComparison : IColorSpaceComparison
 
 public class WeightedEuclidianComparison : IColorSpaceComparison
 {
-    /// <summary>
-    /// Calculates the CIE76 delta-e value: http://en.wikipedia.org/wiki/Color_difference#CIE76
-    /// </summary>
     public double Compare(IColorSpace colorA, IColorSpace colorB)
     {
         var a = colorA.To<Rgb>();
@@ -1502,9 +1416,6 @@ public class WeightedEuclidianComparison : IColorSpaceComparison
 
 public class EuclidianComparison : IColorSpaceComparison
 {
-    /// <summary>
-    /// Calculates the CIE76 delta-e value: http://en.wikipedia.org/wiki/Color_difference#CIE76
-    /// </summary>
     public double Compare(IColorSpace colorA, IColorSpace colorB)
     {
         var a = colorA.To<Rgb>();
