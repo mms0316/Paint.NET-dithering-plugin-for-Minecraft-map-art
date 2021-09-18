@@ -130,15 +130,6 @@ void PreRender(Surface dst, Surface src)
 {
     skipNextRenders = false;
 
-    // Preprocessing: Hue, Saturation Lightness
-    if (InputHue != 0 || InputSaturation != 100 || InputLightness != 0)
-    {
-        UnaryPixelOp pixelOp = new UnaryPixelOps.HueSaturationLightness(InputHue, InputSaturation, InputLightness);
-        pixelOp.Apply(dst, src, src.Bounds);
-    }
-    else
-        dst.CopySurface(src, src.Bounds);
-
     switch ((ColorMethod)InputColorMethod)
     {
         case ColorMethod.WeightedEuclidean:
@@ -404,6 +395,15 @@ protected override void OnDispose(bool disposing)
 void Render(Surface dst, Surface src, Rectangle rect)
 {
     if (skipNextRenders) return;
+
+    // Preprocessing: Hue, Saturation Lightness
+    if (InputHue != 0 || InputSaturation != 100 || InputLightness != 0)
+    {
+        UnaryPixelOp pixelOp = new UnaryPixelOps.HueSaturationLightness(InputHue, InputSaturation, InputLightness);
+        pixelOp.Apply(dst, src, src.Bounds);
+    }
+    else
+        dst.CopySurface(src, src.Bounds);
 
     DitheringMethod ditheringMethod = (DitheringMethod)InputDitheringMethod;
 
