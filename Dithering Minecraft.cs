@@ -43,7 +43,7 @@ https://shihn.ca/posts/2020/dithering/
 https://github.com/redstonehelper/MapConverter/blob/main/MapConverter.java
 https://github.com/rebane2001/mapartcraft/blob/master/src/components/mapart/workers/mapCanvas.jsworker
 
-v8
+v9
 */
 
 #region UICode
@@ -69,7 +69,7 @@ CheckboxControl InputPalettePrismarine = true; // {!InputPaletteSkinTweak} Prism
 CheckboxControl InputPaletteTNT = true; // {!InputPaletteSkinTweak} TNT
 CheckboxControl InputPaletteIce = true; // {!InputPaletteSkinTweak} Ice
 CheckboxControl InputPaletteDirt = true; // {!InputPaletteSkinTweak} Dirt
-CheckboxControl InputPaletteWhiteTerracotta = true; // {!InputPaletteSkinTweak} White Terracotta
+CheckboxControl InputPaletteTerracotta = true; // {!InputPaletteSkinTweak} Terracotta (all colors)
 CheckboxControl InputPaletteWhiteTerracottaDark = true; // {InputPaletteSkinTweak} White Terracotta (dark)
 CheckboxControl InputPaletteWhiteTerracottaMedium = true; // {InputPaletteSkinTweak} White Terracotta (medium)
 CheckboxControl InputPaletteWhiteTerracottaLight = true; // {InputPaletteSkinTweak} White Terracotta (light)
@@ -78,7 +78,7 @@ CheckboxControl InputPaletteMushroomStem = false; // {!InputPaletteSkinTweak} Mu
 CheckboxControl InputPaletteMushroomStemDark = false; // {InputPaletteSkinTweak} Mushroom Stem (dark)
 CheckboxControl InputPaletteMushroomStemMedium = false; // {InputPaletteSkinTweak} Mushroom Stem (medium)
 CheckboxControl InputPaletteMushroomStemLight = false; // {InputPaletteSkinTweak} Mushroom Stem (light)
-CheckboxControl InputPaletteCrimsonNylium = false; // {!InputPaletteSkinTweak} Crimson Nylium
+
 IntSliderControl InputHue = 0; // [-180,180,2] Hue
 IntSliderControl InputSaturation = 100; // [0,400,3] Saturation
 IntSliderControl InputLightness = 0; // [-100,100,5] Lightness
@@ -204,180 +204,142 @@ void PreRender(Surface dst, Surface src)
     }
     else
     {
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 174, G = 164, B = 115 });
-        palette.Add(new Rgb { R = 213, G = 201, B = 140 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 247, G = 233, B = 163 });
+        //Grass/Slime
+        AddPalette(palette, 127, 178, 56);
 
-        if (InputPalettePrismarine)
-        {
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 64, G = 154, B = 150 });
-            palette.Add(new Rgb { R = 79, G = 188, B = 183 });
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 92, G = 219, B = 213 });
-        }
-        if (InputPaletteTNT)
-        {
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 180, G = 0, B = 0 });
-            palette.Add(new Rgb { R = 220, G = 0, B = 0 });
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 255, G = 0, B = 0 });
-        }
-        if (InputPaletteDirt)
-        {
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 106, G = 76, B = 54 });
-            palette.Add(new Rgb { R = 130, G = 94, B = 66 });
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 151, G = 109, B = 77 });
-        }
-        if (InputPaletteIce)
-        {
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 112, G = 112, B = 180 });
-            palette.Add(new Rgb { R = 138, G = 138, B = 220 });
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 160, G = 160, B = 255 });
-        }
-        if (InputPaletteWhiteTerracotta)
-        {
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 147, G = 124, B = 113 });
-            palette.Add(new Rgb { R = 180, G = 152, B = 138 });
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 209, G = 177, B = 161 });
-        }
-        if (InputPaletteLapis)
-        {
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 52, G = 90, B = 180 });
-            palette.Add(new Rgb { R = 63, G = 110, B = 220 });
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 74, G = 128, B = 255 });
-        }
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 180, G = 180, B = 180 });
-        palette.Add(new Rgb { R = 220, G = 220, B = 220 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 255, G = 255, B = 255 });
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 152, G = 89, B = 36 });
-        palette.Add(new Rgb { R = 186, G = 109, B = 44 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 216, G = 127, B = 51 });
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 125, G = 53, B = 152 });
-        palette.Add(new Rgb { R = 153, G = 65, B = 186 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 178, G = 76, B = 216 });
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 72, G = 108, B = 152 });
-        palette.Add(new Rgb { R = 88, G = 132, B = 186 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 102, G = 153, B = 216 });
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 161, G = 161, B = 36 });
-        palette.Add(new Rgb { R = 197, G = 197, B = 44 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 229, G = 229, B = 51 });
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 89, G = 144, B = 17 });
-        palette.Add(new Rgb { R = 109, G = 176, B = 21 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 127, G = 204, B = 25 });
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 170, G = 89, B = 116 });
-        palette.Add(new Rgb { R = 208, G = 109, B = 142 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 242, G = 127, B = 165 });
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 53, G = 53, B = 53 });
-        palette.Add(new Rgb { R = 65, G = 65, B = 65 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 76, G = 76, B = 76 });
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 108, G = 108, B = 108 });
-        palette.Add(new Rgb { R = 132, G = 132, B = 132 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 153, G = 153, B = 153 });
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 53, G = 89, B = 108 });
-        palette.Add(new Rgb { R = 65, G = 109, B = 132 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 76, G = 127, B = 153 });
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 89, G = 44, B = 125 });
-        palette.Add(new Rgb { R = 109, G = 54, B = 153 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 127, G = 63, B = 178 });
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 36, G = 53, B = 125 });
-        palette.Add(new Rgb { R = 44, G = 65, B = 153 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 51, G = 76, B = 178 });
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 72, G = 53, B = 36 });
-        palette.Add(new Rgb { R = 88, G = 65, B = 44 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 102, G = 76, B = 51 });
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 72, G = 89, B = 36 });
-        palette.Add(new Rgb { R = 88, G = 109, B = 44 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 102, G = 127, B = 51 });
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 108, G = 36, B = 36 });
-        palette.Add(new Rgb { R = 132, G = 44, B = 44 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 153, G = 51, B = 51 });
-
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 17, G = 17, B = 17 });
-        palette.Add(new Rgb { R = 21, G = 21, B = 21 });
-        if (InputPalette3d)
-            palette.Add(new Rgb { R = 25, G = 25, B = 25 });
+        //Sand
+        AddPalette(palette, 247, 233, 163);
 
         if (InputPaletteMushroomStem)
+            AddPalette(palette, 199, 199, 199);
+
+        if (InputPaletteTNT)
+            AddPalette(palette, 255, 0, 0);
+
+        if (InputPaletteIce)
+            AddPalette(palette, 160, 160, 255);
+
+        //Iron
+        AddPalette(palette, 167, 167, 167);
+        
+        //Clay
+        AddPalette(palette, 164, 168, 184);
+
+        if (InputPaletteDirt)
+            AddPalette(palette, 151, 109, 77);
+
+        //Stone
+        AddPalette(palette, 112, 112, 112);
+
+        //Water
+        //
+
+        //Oak
+        AddPalette(palette, 143, 119, 72);
+
+        //Diorite/Quartz
+        //
+
+        //Wool
+        AddPalette(palette, 255, 255, 255);
+        AddPalette(palette, 216, 127, 51);
+        AddPalette(palette, 178, 76, 216);
+        AddPalette(palette, 102, 153, 216);
+        AddPalette(palette, 229, 229, 51);
+        AddPalette(palette, 127, 204, 25);
+        AddPalette(palette, 242, 127, 165);
+        AddPalette(palette, 76, 76, 76);
+        AddPalette(palette, 153, 153, 153);
+        AddPalette(palette, 76, 127, 153);
+        AddPalette(palette, 127, 63, 178);
+        AddPalette(palette, 51, 76, 178);
+        AddPalette(palette, 102, 76, 51);
+        AddPalette(palette, 102, 127, 51);
+        AddPalette(palette, 153, 51, 51);
+        AddPalette(palette, 25, 25, 25);
+
+        //Gold
+        //
+
+        if (InputPalettePrismarine)
+            AddPalette(palette, 92, 219, 213);
+
+        if (InputPaletteLapis)
+            AddPalette(palette, 74, 128, 255);
+
+        //Emerald
+        //
+
+        //Spruce
+        AddPalette(palette, 129, 86, 49);
+
+        //Netherrack
+        AddPalette(palette, 112, 2, 0);
+
+        if (InputPaletteTerracotta)
         {
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 140, G = 140, B = 140 });
-            palette.Add(new Rgb { R = 171, G = 171, B = 171 });
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 199, G = 199, B = 199 });
+            AddPalette(palette, 209, 177, 161);
+            AddPalette(palette, 159, 82, 36);
+            AddPalette(palette, 149, 87, 108);
+            AddPalette(palette, 112, 108, 138);
+            AddPalette(palette, 186, 133, 36);
+            AddPalette(palette, 103, 117, 53);
+            AddPalette(palette, 160, 77, 78);
+            AddPalette(palette, 57, 41, 35);
+            AddPalette(palette, 135, 107, 98);
+            AddPalette(palette, 87, 92, 92);
+            AddPalette(palette, 122, 73, 88);
+            AddPalette(palette, 76, 62, 92);
+            AddPalette(palette, 76, 50, 35);
+            AddPalette(palette, 76, 82, 42);
+            AddPalette(palette, 142, 60, 46);
+            AddPalette(palette, 37, 22, 16);
         }
 
-        if (InputPaletteCrimsonNylium)
-        {
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 133, G = 33, B = 34 });
-            palette.Add(new Rgb { R = 163, G = 41, B = 42 });
-            if (InputPalette3d)
-                palette.Add(new Rgb { R = 189, G = 48, B = 49 });
-        }
+        //Crimson Nylium
+        //
+
+        //Crimson Slab
+        AddPalette(palette, 148, 63, 97);
+
+        //Crimson Hyphae
+        AddPalette(palette, 92, 25, 29);
+
+        //Warped Nylium
+        //
+
+        //Warped Slab
+        AddPalette(palette, 58, 142, 140);
+
+        //Warped Hyphae
+        AddPalette(palette, 86, 44, 62);
+
+        //Warped Wart Block
+        //
+
+        //Deepslate
+        //
+
+        //Block of Raw Iron
+        //
+
+        //Glow Lichen
+        //
     }
 
     if (cache == null)
         cache = new Dictionary <IColorSpace, IColorSpace>();
     else
         cache.Clear();
+}
+
+void AddPalette(IList<IColorSpace> palette, int R, int G, int B)
+{
+    if (InputPalette3d)
+        palette.Add(new Rgb { R = R * 180 / 255, G = G * 180 / 255, B = B * 180 / 255 });
+    palette.Add(new Rgb { R = R * 220 / 255, G = G * 220 / 255, B = B * 220 / 255 });
+    if (InputPalette3d)
+        palette.Add(new Rgb { R = R, G = G, B = B });
 }
 
 protected override void OnDispose(bool disposing)
@@ -466,7 +428,7 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         //  3 5 1    and pixel difference is distributed to neighbor pixels
                         //           Note: 7+3+5+1=16 so we divide by 16 before adding.
                         div = 16;
-
+                        
                         if (x + 1 < rect.Right)
                             ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 7, div);
 
