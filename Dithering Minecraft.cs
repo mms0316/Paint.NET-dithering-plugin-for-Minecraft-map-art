@@ -89,7 +89,7 @@ CheckboxControl InputPaletteDeepslate = true; // {!InputPaletteSkinTweak} Deepsl
 CheckboxControl InputPaletteRawIron = true; // {!InputPaletteSkinTweak} Raw Iron
 
 IntSliderControl InputHue = 0; // [-180,180,2] Hue
-IntSliderControl InputSaturation = 100; // [0,400,3] Saturation
+IntSliderControl InputSaturation = 100; // [0,200,3] Saturation
 IntSliderControl InputLightness = 0; // [-100,100,5] Lightness
 
 #endregion
