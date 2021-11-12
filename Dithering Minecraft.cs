@@ -1,11 +1,14 @@
+// Name: Dithering for Minecraft
 // Title: Dithering Effect for Minecraft
 // Author: mms0316 using code from BoltBait and ColorMinePortable
-// Name: Dithering for Minecraft
 // Submenu: Stylize
 // Force Single Threaded
+// Force Single Render Call
+// Version: 2,0
 // Keywords: Dithering|Dither|Error|Diffusion
 // Desc: Dither selected pixels
 // URL: https://github.com/mms0316/Paint.NET-dithering-plugin-for-Minecraft-map-art
+// Help:
 
 /*
 ColorMinePortable is licensed as:
@@ -43,7 +46,6 @@ https://shihn.ca/posts/2020/dithering/
 https://github.com/redstonehelper/MapConverter/blob/main/MapConverter.java
 https://github.com/rebane2001/mapartcraft/blob/master/src/components/mapart/workers/mapCanvas.jsworker
 
-v9
 */
 
 #region UICode
@@ -68,21 +70,28 @@ CheckboxControl InputPaletteOrangeLight = true; // {InputPaletteSkinTweak} Orang
 CheckboxControl InputPalettePrismarine = true; // {!InputPaletteSkinTweak} Prismarine
 CheckboxControl InputPaletteTNT = true; // {!InputPaletteSkinTweak} TNT
 CheckboxControl InputPaletteIce = true; // {!InputPaletteSkinTweak} Ice
-CheckboxControl InputPaletteDirt = true; // {!InputPaletteSkinTweak} Dirt
+CheckboxControl InputPaletteDirt = true; // {!InputPaletteSkinTweak} Dirt/Jungle
 CheckboxControl InputPaletteTerracotta = true; // {!InputPaletteSkinTweak} Terracotta (all colors)
+CheckboxControl InputPaletteNylium = true; // {!InputPaletteSkinTweak} Nylium, Wart Block
 CheckboxControl InputPaletteWhiteTerracottaDark = true; // {InputPaletteSkinTweak} White Terracotta (dark)
 CheckboxControl InputPaletteWhiteTerracottaMedium = true; // {InputPaletteSkinTweak} White Terracotta (medium)
 CheckboxControl InputPaletteWhiteTerracottaLight = true; // {InputPaletteSkinTweak} White Terracotta (light)
-CheckboxControl InputPaletteLapis = false; // {!InputPaletteSkinTweak} Lapis Lazuli
-CheckboxControl InputPaletteMushroomStem = false; // {!InputPaletteSkinTweak} Mushroom Stem
+CheckboxControl InputPaletteLapis = true; // {!InputPaletteSkinTweak} Lapis Lazuli
+CheckboxControl InputPaletteMushroomStem = true; // {!InputPaletteSkinTweak} Mushroom Stem
 CheckboxControl InputPaletteMushroomStemDark = false; // {InputPaletteSkinTweak} Mushroom Stem (dark)
 CheckboxControl InputPaletteMushroomStemMedium = false; // {InputPaletteSkinTweak} Mushroom Stem (medium)
 CheckboxControl InputPaletteMushroomStemLight = false; // {InputPaletteSkinTweak} Mushroom Stem (light)
 
+CheckboxControl InputPaletteIron = true; // {!InputPaletteSkinTweak} Iron
+CheckboxControl InputPaletteGold = true; // {!InputPaletteSkinTweak} Gold
+CheckboxControl InputPaletteEmerald = true; // {!InputPaletteSkinTweak} Emerald
+CheckboxControl InputPaletteDeepslate = true; // {!InputPaletteSkinTweak} Deepslate
+CheckboxControl InputPaletteRawIron = true; // {!InputPaletteSkinTweak} Raw Iron
+
 IntSliderControl InputHue = 0; // [-180,180,2] Hue
 IntSliderControl InputSaturation = 100; // [0,400,3] Saturation
 IntSliderControl InputLightness = 0; // [-100,100,5] Lightness
-CheckboxControl InputFixChunk = true; // Apply fix for plugins' 128x128 subchunk limitation
+
 #endregion
 
 enum ColorMethod
@@ -123,12 +132,25 @@ enum ErrorRoundingMethod
 
 IColorSpaceComparison comparer = null;
 List<IColorSpace> palette = null;
-bool skipNextRenders = false;
 Dictionary<IColorSpace, IColorSpace> cache = null;
 
+// Setup for calling the Hue and Saturation Adjustment function
+HueAndSaturationAdjustment saturationEffect = new HueAndSaturationAdjustment();
+PropertyCollection saturationProps;
+
+
+// This single-threaded function is called after the UI changes and before the Render function is called
+// The purpose is to prepare anything you'll need in the Render function
 void PreRender(Surface dst, Surface src)
 {
-    skipNextRenders = false;
+    // Hue/Saturation
+    saturationEffect.EnvironmentParameters = EnvironmentParameters;
+    saturationProps = saturationEffect.CreatePropertyCollection();
+    PropertyBasedEffectConfigToken saturationParameters = new PropertyBasedEffectConfigToken(saturationProps);
+    saturationParameters.SetPropertyValue(HueAndSaturationAdjustment.PropertyNames.Hue, InputHue);
+    saturationParameters.SetPropertyValue(HueAndSaturationAdjustment.PropertyNames.Saturation, InputSaturation);
+    saturationParameters.SetPropertyValue(HueAndSaturationAdjustment.PropertyNames.Lightness, InputLightness);
+    saturationEffect.SetRenderInfo(saturationParameters, new RenderArgs(dst), new RenderArgs(src));
 
     switch ((ColorMethod)InputColorMethod)
     {
@@ -219,8 +241,8 @@ void PreRender(Surface dst, Surface src)
         if (InputPaletteIce)
             AddPalette(palette, 160, 160, 255);
 
-        //Iron
-        AddPalette(palette, 167, 167, 167);
+        if (InputPaletteIron)
+            AddPalette(palette, 167, 167, 167);
         
         //Clay
         AddPalette(palette, 164, 168, 184);
@@ -238,7 +260,7 @@ void PreRender(Surface dst, Surface src)
         AddPalette(palette, 143, 119, 72);
 
         //Diorite/Quartz
-        //
+        AddPalette(palette, 255, 252, 245);
 
         //Wool
         AddPalette(palette, 255, 255, 255);
@@ -259,7 +281,8 @@ void PreRender(Surface dst, Surface src)
         AddPalette(palette, 25, 25, 25);
 
         //Gold
-        //
+        if (InputPaletteGold)
+            AddPalette(palette, 250, 238, 77);
 
         if (InputPalettePrismarine)
             AddPalette(palette, 92, 219, 213);
@@ -267,8 +290,8 @@ void PreRender(Surface dst, Surface src)
         if (InputPaletteLapis)
             AddPalette(palette, 74, 128, 255);
 
-        //Emerald
-        //
+        if (InputPaletteEmerald)
+            AddPalette(palette, 0, 217, 58);
 
         //Spruce
         AddPalette(palette, 129, 86, 49);
@@ -297,7 +320,8 @@ void PreRender(Surface dst, Surface src)
         }
 
         //Crimson Nylium
-        //
+        if (InputPaletteNylium)
+            AddPalette(palette, 163, 41, 42);
 
         //Crimson Slab
         AddPalette(palette, 148, 63, 97);
@@ -306,7 +330,8 @@ void PreRender(Surface dst, Surface src)
         AddPalette(palette, 92, 25, 29);
 
         //Warped Nylium
-        //
+        if (InputPaletteNylium)
+            AddPalette(palette, 22, 126, 134);
 
         //Warped Slab
         AddPalette(palette, 58, 142, 140);
@@ -315,16 +340,19 @@ void PreRender(Surface dst, Surface src)
         AddPalette(palette, 86, 44, 62);
 
         //Warped Wart Block
-        //
+        if (InputPaletteNylium)
+            AddPalette(palette, 20, 180, 133);
 
         //Deepslate
-        //
+        if (InputPaletteDeepslate)
+            AddPalette(palette, 100, 100, 100);
 
         //Block of Raw Iron
-        //
+        if (InputPaletteRawIron)
+            AddPalette(palette, 216, 175, 147);
 
         //Glow Lichen
-        //
+        AddPalette(palette, 127, 167, 150);
     }
 
     if (cache == null)
@@ -344,59 +372,48 @@ void AddPalette(IList<IColorSpace> palette, int R, int G, int B)
 
 protected override void OnDispose(bool disposing)
 {
-    comparer = null;
+    if (disposing)
+    {
+        // Release any surfaces or effects you've created
+        saturationEffect?.Dispose(); saturationEffect = null;
 
-    if (palette != null)
-        palette.Clear();
-    palette = null;
+        palette?.Clear();
+        palette = null;
 
+        comparer = null;
+    }
+    
     base.OnDispose(disposing);
 }
 
-// Here is the main render loop function
-void Render(Surface dst, Surface src, Rectangle rect)
+// Here is the main multi-threaded render function
+// The dst canvas is broken up into rectangles and
+// your job is to write to each pixel of that rectangle
+unsafe void Render(Surface dst, Surface src, Rectangle rect)
 {
-    if (skipNextRenders) return;
-
-    // Preprocessing: Hue, Saturation Lightness
-    if (InputHue != 0 || InputSaturation != 100 || InputLightness != 0)
-    {
-        UnaryPixelOp pixelOp = new UnaryPixelOps.HueSaturationLightness(InputHue, InputSaturation, InputLightness);
-        pixelOp.Apply(dst, src, src.Bounds);
-    }
-    else
-        dst.CopySurface(src, src.Bounds);
+    // Now call the Hue/Saturation function from src surface to dst surface
+    saturationEffect.Render(new Rectangle[1] {rect},0,1);
 
     DitheringMethod ditheringMethod = (DitheringMethod)InputDitheringMethod;
 
-    // Paint.NET plugin system subdivides chunks in 128x128 areas, which may interfere with dithering
-    // If fix is enabled, the first call to Render() will work on all chunks and subsequent calls to Render() will do nothing
-    if (InputFixChunk && ditheringMethod != DitheringMethod.None)
-    {
-        if (rect.X % 128 == 0 &&
-            rect.Y % 128 == 0 &&
-            rect.Width % 128 == 0 &&
-            rect.Height % 128 == 0 && (
-                src.Bounds.Width != rect.Width ||
-                src.Bounds.Height != rect.Height
-            ))
-        {
-            rect = new Rectangle(src.Bounds.Location, src.Size);
-            skipNextRenders = true;
-        }
-    }
-
+    // Step through each row of the current rectangle
     for (int y = rect.Top; y < rect.Bottom; y++)
     {
         if (IsCancelRequested) return;
+        ColorBgra* dstPtr0 = dst.GetPointAddressUnchecked(rect.Left, y);
+        ColorBgra* dstPtr1 = dst.GetPointAddressUnchecked(rect.Left, y + 1); //Dithering may use y + 1
+        ColorBgra* dstPtr2 = dst.GetPointAddressUnchecked(rect.Left, y + 2); //Dithering may use y + 2
+
+        // Step through each pixel on the current row of the rectangle
         for (int x = rect.Left; x < rect.Right; x++)
         {
-            ColorBgra currentPixel = dst[x, y];
+            ColorBgra currentPixel = *dstPtr0;
+
             IColorSpace currentColor = new Rgb { R = currentPixel.R, G = currentPixel.G, B = currentPixel.B };
             IColorSpace bestColor = FindNearestColor(currentColor, palette, comparer, cache);
 
             Rgb bestRgb = bestColor.To<Rgb>();
-            dst[x, y] = ColorBgra.FromBgra((byte)bestRgb.B, (byte)bestRgb.G, (byte)bestRgb.R, currentPixel.A);
+            *dstPtr0 = ColorBgra.FromBgra((byte)bestRgb.B, (byte)bestRgb.G, (byte)bestRgb.R, currentPixel.A);
 
             if (ditheringMethod != DitheringMethod.None)
             {
@@ -430,17 +447,17 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         div = 16;
                         
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 7, div);
+                            ApplyDitherMulDiv(dstPtr0 + 1, error1, error2, error3, 7, div);
 
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 3, div);
+                                ApplyDitherMulDiv(dstPtr1 - 1, error1, error2, error3, 3, div);
 
-                            ApplyDitherMulDiv(dst, x - 0, y + 1, error1, error2, error3, 5, div);
+                            ApplyDitherMulDiv(dstPtr1, error1, error2, error3, 5, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 1, y + 1, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dstPtr1 + 1, error1, error2, error3, 1, div);
                         }
                         break;
 
@@ -452,29 +469,29 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         div = 32;
 
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 8, div);
+                            ApplyDitherMulDiv(dstPtr0 + 1, error1, error2, error3, 8, div);
 
                         if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 2, y + 0, error1, error2, error3, 4, div);
+                            ApplyDitherMulDiv(dstPtr0 + 2, error1, error2, error3, 4, div);
 
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dstPtr1 - 1, error1, error2, error3, 4, div);
 
-                            ApplyDitherMulDiv(dst, x - 0, y + 1, error1, error2, error3, 8, div);
+                            ApplyDitherMulDiv(dstPtr1, error1, error2, error3, 8, div);
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dstPtr1 + 1, error1, error2, error3, 4, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 2, y + 1, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dstPtr1 + 2, error1, error2, error3, 1, div);
                         }
                         if (y + 2 < rect.Bottom)
                         {
-                            ApplyDitherMulDiv(dst, x - 0, y + 2, error1, error2, error3, 2, div);
+                            ApplyDitherMulDiv(dstPtr2, error1, error2, error3, 2, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 1, y + 2, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dstPtr2 + 1, error1, error2, error3, 1, div);
                         }
                         break;
 
@@ -485,24 +502,24 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         div = 32;
 
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 8, div);
+                            ApplyDitherMulDiv(dstPtr0 + 1, error1, error2, error3, 8, div);
                         if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 2, y + 0, error1, error2, error3, 4, div);
+                            ApplyDitherMulDiv(dstPtr0 + 2, error1, error2, error3, 4, div);
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 2 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 2, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dstPtr1 - 2, error1, error2, error3, 2, div);
 
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dstPtr1 - 1, error1, error2, error3, 4, div);
 
-                            ApplyDitherMulDiv(dst, x + 0, y + 1, error1, error2, error3, 8, div);
+                            ApplyDitherMulDiv(dstPtr1, error1, error2, error3, 8, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dstPtr1 + 1, error1, error2, error3, 4, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 2, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dstPtr1 + 2, error1, error2, error3, 2, div);
                         }
                         break;
 
@@ -513,13 +530,13 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         div = 4;
 
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 2, div);
+                            ApplyDitherMulDiv(dstPtr0 + 1, error1, error2, error3, 2, div);
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dstPtr1 - 1, error1, error2, error3, 1, div);
 
-                            ApplyDitherMulDiv(dst, x + 0, y + 1, error1, error2, error3, 1, div);
+                            ApplyDitherMulDiv(dstPtr1, error1, error2, error3, 1, div);
                         }
                         break;
 
@@ -529,24 +546,24 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         //               (1/16)
                         div = 16;
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 4, div);
+                            ApplyDitherMulDiv(dstPtr0 + 1, error1, error2, error3, 4, div);
                         if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 2, y + 0, error1, error2, error3, 3, div);
+                            ApplyDitherMulDiv(dstPtr0 + 2, error1, error2, error3, 3, div);
 
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 2 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 2, y + 1, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dstPtr1 - 2, error1, error2, error3, 1, div);
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dstPtr1 - 1, error1, error2, error3, 2, div);
 
-                            ApplyDitherMulDiv(dst, x + 0, y + 1, error1, error2, error3, 3, div);
+                            ApplyDitherMulDiv(dstPtr1, error1, error2, error3, 3, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 1, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dstPtr1 + 1, error1, error2, error3, 2, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 2, y + 1, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dstPtr1 + 2, error1, error2, error3, 1, div);
                         }
                         break;
 
@@ -556,35 +573,35 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         //    2 3 2      (1/32)
                         div = 32;
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 5, div);
+                            ApplyDitherMulDiv(dstPtr0 + 1, error1, error2, error3, 5, div);
                         if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 2, y + 0, error1, error2, error3, 3, div);
+                            ApplyDitherMulDiv(dstPtr0 + 2, error1, error2, error3, 3, div);
 
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 2 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 2, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dstPtr1 - 2, error1, error2, error3, 2, div);
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dstPtr1 - 1, error1, error2, error3, 4, div);
 
-                            ApplyDitherMulDiv(dst, x + 0, y + 1, error1, error2, error3, 5, div);
+                            ApplyDitherMulDiv(dstPtr1, error1, error2, error3, 5, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dstPtr1 + 1, error1, error2, error3, 4, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 2, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dstPtr1 + 2, error1, error2, error3, 2, div);
                         }
 
                         if (y + 2 < rect.Bottom)
                         {
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 1, y + 2, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dstPtr2 - 1, error1, error2, error3, 2, div);
 
-                            ApplyDitherMulDiv(dst, x + 0, y + 2, error1, error2, error3, 3, div);
+                            ApplyDitherMulDiv(dstPtr2, error1, error2, error3, 3, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 1, y + 2, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dstPtr2 + 1, error1, error2, error3, 2, div);
 
                         }
                         break;
@@ -596,40 +613,40 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         div = 42;
 
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 8, div);
+                            ApplyDitherMulDiv(dstPtr0 + 1, error1, error2, error3, 8, div);
                         if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 2, y + 0, error1, error2, error3, 4, div);
+                            ApplyDitherMulDiv(dstPtr0 + 2, error1, error2, error3, 4, div);
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 2 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 2, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dstPtr1 - 2, error1, error2, error3, 2, div);
 
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dstPtr1 - 1, error1, error2, error3, 4, div);
 
-                            ApplyDitherMulDiv(dst, x + 0, y + 1, error1, error2, error3, 8, div);
+                            ApplyDitherMulDiv(dstPtr1, error1, error2, error3, 8, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 1, y + 1, error1, error2, error3, 4, div);
+                                ApplyDitherMulDiv(dstPtr1 + 1, error1, error2, error3, 4, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 2, y + 1, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dstPtr1 + 2, error1, error2, error3, 2, div);
                         }
                         if (y + 2 < rect.Bottom)
                         {
                             if (x - 2 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 2, y + 2, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dstPtr2 - 2, error1, error2, error3, 1, div);
 
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 1, y + 2, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dstPtr2 - 1, error1, error2, error3, 2, div);
 
-                            ApplyDitherMulDiv(dst, x + 0, y + 2, error1, error2, error3, 4, div);
+                            ApplyDitherMulDiv(dstPtr2, error1, error2, error3, 4, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 1, y + 2, error1, error2, error3, 2, div);
+                                ApplyDitherMulDiv(dstPtr2 + 1, error1, error2, error3, 2, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 2, y + 2, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dstPtr2 + 2, error1, error2, error3, 1, div);
                         }
                         break;
 
@@ -640,44 +657,48 @@ void Render(Surface dst, Surface src, Rectangle rect)
                         div = 48;
 
                         if (x + 1 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 1, y + 0, error1, error2, error3, 7, div);
+                            ApplyDitherMulDiv(dstPtr0 + 1, error1, error2, error3, 7, div);
                         if (x + 2 < rect.Right)
-                            ApplyDitherMulDiv(dst, x + 2, y + 0, error1, error2, error3, 5, div);
+                            ApplyDitherMulDiv(dstPtr0 + 2, error1, error2, error3, 5, div);
                         if (y + 1 < rect.Bottom)
                         {
                             if (x - 2 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 2, y + 1, error1, error2, error3, 3, div);
+                                ApplyDitherMulDiv(dstPtr1 - 2, error1, error2, error3, 3, div);
 
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 1, y + 1, error1, error2, error3, 5, div);
+                                ApplyDitherMulDiv(dstPtr1 - 1, error1, error2, error3, 5, div);
 
-                            ApplyDitherMulDiv(dst, x + 0, y + 1, error1, error2, error3, 7, div);
+                            ApplyDitherMulDiv(dstPtr1, error1, error2, error3, 7, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 1, y + 1, error1, error2, error3, 5, div);
+                                ApplyDitherMulDiv(dstPtr1 + 1, error1, error2, error3, 5, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 2, y + 1, error1, error2, error3, 3, div);
+                                ApplyDitherMulDiv(dstPtr1 + 2, error1, error2, error3, 3, div);
                         }
                         if (y + 2 < rect.Bottom)
                         {
                             if (x - 2 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 2, y + 2, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dstPtr2 - 2, error1, error2, error3, 1, div);
 
                             if (x - 1 >= rect.Left)
-                                ApplyDitherMulDiv(dst, x - 1, y + 2, error1, error2, error3, 3, div);
+                                ApplyDitherMulDiv(dstPtr2 - 1, error1, error2, error3, 3, div);
 
-                            ApplyDitherMulDiv(dst, x + 0, y + 2, error1, error2, error3, 5, div);
+                            ApplyDitherMulDiv(dstPtr2, error1, error2, error3, 5, div);
 
                             if (x + 1 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 1, y + 2, error1, error2, error3, 3, div);
+                                ApplyDitherMulDiv(dstPtr2 + 1, error1, error2, error3, 3, div);
 
                             if (x + 2 < rect.Right)
-                                ApplyDitherMulDiv(dst, x + 2, y + 2, error1, error2, error3, 1, div);
+                                ApplyDitherMulDiv(dstPtr2 + 2, error1, error2, error3, 1, div);
                         }
                         break;
                 }
             }
+
+            dstPtr0++;
+            dstPtr1++;
+            dstPtr2++;
         }
     }
 }
@@ -711,10 +732,9 @@ IColorSpace FindNearestColor(IColorSpace color, IList<IColorSpace> palette, ICol
     return result;
 }
 
-void ApplyDitherMulDiv(Surface dst, int x, int y, double error1, double error2, double error3, int mul, int div)
+unsafe void ApplyDitherMulDiv(ColorBgra *currentPixel, double error1, double error2, double error3, int mul, int div)
 {
-    ColorBgra currentPixel = dst[x, y];
-    IColorSpace currentColor = new Rgb { R = currentPixel.R, G = currentPixel.G, B = currentPixel.B };
+    IColorSpace currentColor = new Rgb { R = currentPixel->R, G = currentPixel->G, B = currentPixel->B };
     var weight = (double)mul / div;
 
     if ((ErrorCalcMethod)InputErrorCalcMethod == ErrorCalcMethod.LAB)
@@ -727,17 +747,17 @@ void ApplyDitherMulDiv(Surface dst, int x, int y, double error1, double error2, 
         lab.L = ClampL(lab.L);
 
         Rgb rgb = lab.To<Rgb>();
-        dst[x, y] = ColorBgra.FromBgra(Round(rgb.B), Round(rgb.G), Round(rgb.R), currentPixel.A);
+        *currentPixel = ColorBgra.FromBgra(Round(rgb.B), Round(rgb.G), Round(rgb.R), currentPixel->A);
     }
     else
     {
         double R, G, B;
 
-        R = currentPixel.R + error1 * weight;
-        G = currentPixel.G + error2 * weight;
-        B = currentPixel.B + error3 * weight;
+        R = currentPixel->R + error1 * weight;
+        G = currentPixel->G + error2 * weight;
+        B = currentPixel->B + error3 * weight;
 
-        dst[x, y] = ColorBgra.FromBgra(Round(ClampRgb(B)), Round(ClampRgb(G)), Round(ClampRgb(R)), currentPixel.A);
+        *currentPixel = ColorBgra.FromBgra(Round(ClampRgb(B)), Round(ClampRgb(G)), Round(ClampRgb(R)), currentPixel->A);
     }
 }
 
